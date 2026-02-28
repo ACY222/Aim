@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <format>
 #include <iostream>
 #include <optional>
-#include <regex>
 #include <string>
 #include <sys/ioctl.h>
 #include <system_error>
@@ -47,16 +47,14 @@ class Terminal {
     struct termios orig_termios;
 
     void die(const std::string &s) {
-        // clear the screen and reposition the cursor when the program dies
-        write(STDOUT_FILENO, "\x1b[2J", 4);
-        write(STDOUT_FILENO, "\x1b[H", 3);
-
         throw std::system_error(errno, std::system_category(), s);
     }
 
     std::optional<WindowSize> getCursorPosition() {
         std::string response;
+        response.reserve(8);
         char c;
+
         // get cursor position
         // the terminal will respond: `\x1b[行号;列号R`
         if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) {
@@ -68,15 +66,16 @@ class Terminal {
                 break;
             }
         }
-        std::string pattern = R"(\x1b\[(\d+);(\d+)R)";
-        std::regex r(pattern);
-        std::smatch results;
 
-        if (std::regex_match(response, results, r)) {
-            return WindowSize(std::stoi(results[1]), std::stoi(results[2]));
-        } else {
+        if (response[0] != '\x1b' or response[1] != '[') {
             return std::nullopt;
         }
+        int rows, cols;
+        if (sscanf(&response.c_str()[2], "%d;%d", &rows, &cols) != 2) {
+            return std::nullopt;
+        }
+
+        return WindowSize(rows, cols);
     }
 
     std::optional<WindowSize> getWindowSize() {
@@ -184,7 +183,7 @@ class Terminal {
                         return ARROW_LEFT;
                     }
                 }
-            } else if (seq[0] == '0') {
+            } else if (seq[0] == 'O') {
                 switch (seq[1]) {
                 case 'H':
                     return HOME_KEY;
@@ -280,7 +279,10 @@ class Editor {
         int padding_len = term.cols - mode.size() - cursor_position.size();
         std::string padding =
             padding_len > 0 ? std::string(padding_len, ' ') : "";
-        ab = ab + mode + padding + cursor_position;
+
+        ab += mode;
+        ab += padding;
+        ab += cursor_position;
         ab += "\x1b[K";
         ab += "\x1b[m"; // reverse color
     }
@@ -309,9 +311,29 @@ class Editor {
 
     void clampCursor() {
         cx = std::clamp(cx, 0, term.cols - 1);
-        cy = std::clamp(cy, 0, term.rows - 1);
+        cy = std::clamp(cy, 0, term.rows - 2); // status bar
     }
 
+    void moveCursor(int key) {
+        switch (key) {
+        case 'h':
+        case ARROW_LEFT:
+            --cx;
+            break;
+        case 'j':
+        case ARROW_DOWN:
+            ++cy;
+            break;
+        case 'k':
+        case ARROW_UP:
+            --cy;
+            break;
+        case 'l':
+        case ARROW_RIGHT:
+            ++cx;
+            break;
+        }
+    }
     void handleNormal(int key) {
         switch (key) {
         case 'i':
@@ -332,24 +354,14 @@ class Editor {
             break;
 
         case 'h':
-        case ARROW_LEFT:
-            if (cx > 0) {
-                --cx;
-            }
-            break;
         case 'j':
-        case ARROW_DOWN:
-            ++cy;
-            break;
         case 'k':
-        case ARROW_UP:
-            if (cy > 0) {
-                --cy;
-            }
-            break;
         case 'l':
+        case ARROW_LEFT:
+        case ARROW_DOWN:
+        case ARROW_UP:
         case ARROW_RIGHT:
-            ++cx;
+            moveCursor(key);
             break;
 
         case 'Q':
@@ -371,8 +383,18 @@ class Editor {
         if (key == '\x1b') {
             current_mode = Mode::Normal;
         } else {
-            handleNormal(key);
-            current_mode = Mode::Visual;
+            switch (key) {
+            case 'h':
+            case 'j':
+            case 'k':
+            case 'l':
+            case ARROW_LEFT:
+            case ARROW_DOWN:
+            case ARROW_UP:
+            case ARROW_RIGHT:
+                moveCursor(key);
+                break;
+            }
         }
     }
 
