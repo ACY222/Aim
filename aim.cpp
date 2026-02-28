@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cctype>
 #include <format>
 #include <iostream>
@@ -17,6 +18,7 @@ enum class Mode {
     Normal,
     Insert,
     Visual,
+    VisualLine,
     CommandLine,
 };
 
@@ -209,36 +211,78 @@ class Editor {
 
     void run() {
         while (!should_quit) {
-            refreshScreenDebug();
+            refreshScreen();
             int key = term.readKey();
             processKeyPress(key);
         }
     }
 
   private:
-    void refreshScreenDebug() {
-        write(STDOUT_FILENO, "\x1b[2J", 4);
-        write(STDOUT_FILENO, "\x1b[H", 3);
+    void refreshScreen() {
+        std::string ab; // append buffer
 
-        std::string status;
-        status += "\r\n";
+        // hide the cursor
+        ab += "\x1b[?25l";
+        // reposition the cursor to top-left
+        ab += "\x1b[H";
+
+        drawRows(ab);
+        drawStatusBar(ab);
+
+        // move the cursor to (cx, cy)
+        ab += std::format("\x1b[{};{}H", cy + 1, cx + 1);
+        // make the cursor visible
+        ab += "\x1b[?25h";
+        // write to STDOUT_FILENO
+        write(STDOUT_FILENO, ab.c_str(), ab.size());
+    }
+
+    void drawRows(std::string &ab) {
+        for (int y = 0; y < term.rows - 1; ++y) {
+            if (y == term.rows / 3) {
+                std::string welcome = "Welcome to AIM editor!";
+                int padding_len = (term.cols - welcome.size()) / 2;
+                ab.append(padding_len, ' ');
+                ab += welcome;
+                ab.append(padding_len, ' ');
+            } else {
+                ab += "~";
+            }
+            ab += "\x1b[K"; // clear the rest of the line
+            ab += "\r\n";
+        }
+    }
+
+    void drawStatusBar(std::string &ab) {
+        ab += "\x1b[7m"; // reverse color
+
+        std::string mode;
         switch (current_mode) {
         case Mode::Normal:
-            status += "Normal";
+            mode = "Normal";
             break;
         case Mode::Insert:
-            status += "Insert";
+            mode = "Insert";
             break;
         case Mode::Visual:
-            status += "Visual";
+            mode = "Visual";
+            break;
+        case Mode::VisualLine:
+            mode = "VisualLine";
             break;
         case Mode::CommandLine:
-            status += "Command";
+            mode = "Command";
             break;
         }
-        status += std::format(" | {}:{}", cy + 1, cx + 1);
 
-        std::cout << status << std::flush;
+        std::string cursor_position = std::format("{}:{}    ", cy + 1, cx + 1);
+
+        int padding_len = term.cols - mode.size() - cursor_position.size();
+        std::string padding =
+            padding_len > 0 ? std::string(padding_len, ' ') : "";
+        ab = ab + mode + padding + cursor_position;
+        ab += "\x1b[K";
+        ab += "\x1b[m"; // reverse color
     }
 
     void processKeyPress(int key) {
@@ -252,10 +296,20 @@ class Editor {
         case Mode::Visual:
             handleVisual(key);
             break;
+        case Mode::VisualLine:
+            handleVisualLine(key);
+            break;
         case Mode::CommandLine:
             handleCommandLine(key);
             break;
         }
+
+        clampCursor(); // make sure that cx, cy won't be out of range
+    }
+
+    void clampCursor() {
+        cx = std::clamp(cx, 0, term.cols - 1);
+        cy = std::clamp(cy, 0, term.rows - 1);
     }
 
     void handleNormal(int key) {
@@ -319,6 +373,15 @@ class Editor {
         } else {
             handleNormal(key);
             current_mode = Mode::Visual;
+        }
+    }
+
+    void handleVisualLine(int key) {
+        if (key == '\x1b') {
+            current_mode = Mode::Normal;
+        } else {
+            handleNormal(key);
+            current_mode = Mode::VisualLine;
         }
     }
 
