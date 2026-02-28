@@ -1,9 +1,35 @@
 #include <cctype>
+#include <format>
 #include <iostream>
 #include <system_error>
 #include <termios.h>
 #include <unistd.h>
 
+/*** defines ***/
+
+#define CTRL_KEY(k) ((k) & 0x1f)
+
+enum class Mode {
+    Normal,
+    Insert,
+    Visual,
+    CommandLine,
+};
+
+enum EditorKey {
+    BACKSPACE = 127,
+    ARROW_LEFT = 1000,
+    ARROW_RIGHT,
+    ARROW_UP,
+    ARROW_DOWN,
+    DEL_KEY,
+    HOME_KEY,
+    END_KEY,
+    PAGE_UP,
+    PAGE_DOWN,
+};
+
+/*** terminal ***/
 class Terminal {
   private:
     struct termios orig_termios;
@@ -55,28 +81,203 @@ class Terminal {
                 die("read");
             }
         }
-        return c;
+
+        if (c == '\x1b') {
+            char seq[3];
+            // try reading two more characters in a very short time
+            if (read(STDIN_FILENO, &seq[0], 1) != 1) {
+                return '\x1b';
+            }
+            if (read(STDIN_FILENO, &seq[1], 1) != 1) {
+                return '\x1b';
+            }
+
+            if (seq[0] == '[') {
+                if (seq[1] >= '0' and seq[1] <= '9') {
+                    if (read(STDIN_FILENO, &seq[2], 1) != 1) {
+                        return '\x1b';
+                    }
+
+                    if (seq[2] == '~') {
+                        switch (seq[1]) {
+                        case '1':
+                        case '7':
+                            return HOME_KEY;
+                        case '4':
+                        case '8':
+                            return END_KEY;
+                        case '3':
+                            return DEL_KEY;
+                        case '5':
+                            return PAGE_UP;
+                        case '6':
+                            return PAGE_DOWN;
+                        }
+                    }
+                } else {
+                    switch (seq[1]) {
+                    case 'A':
+                        return ARROW_UP;
+                    case 'B':
+                        return ARROW_DOWN;
+                    case 'C':
+                        return ARROW_RIGHT;
+                    case 'D':
+                        return ARROW_LEFT;
+                    }
+                }
+            } else if (seq[0] == '0') {
+                switch (seq[1]) {
+                case 'H':
+                    return HOME_KEY;
+                case 'F':
+                    return END_KEY;
+                }
+            }
+            return '\x1b';
+        } else {
+            return c;
+        }
+    }
+};
+
+class Editor {
+  private:
+    Terminal term;
+    Mode current_mode;
+    int cx, cy;
+    bool should_quit;
+
+  public:
+    Editor() : current_mode(Mode::Normal), cx(0), cy(0), should_quit(false) {}
+
+    void run() {
+        while (!should_quit) {
+            refreshScreenDebug();
+            int key = term.readKey();
+            processKeyPress(key);
+        }
+    }
+
+  private:
+    void refreshScreenDebug() {
+        std::string status;
+        status += "\r\n";
+        switch (current_mode) {
+        case Mode::Normal:
+            status += "Normal";
+            break;
+        case Mode::Insert:
+            status += "Insert";
+            break;
+        case Mode::Visual:
+            status += "Visual";
+            break;
+        case Mode::CommandLine:
+            status += "Command";
+            break;
+        }
+        status += std::format(" | {}:{}", cy + 1, cx + 1);
+
+        std::cout << status << std::flush;
+    }
+
+    void processKeyPress(int key) {
+        switch (current_mode) {
+        case Mode::Normal:
+            handleNormal(key);
+            break;
+        case Mode::Insert:
+            handleInsert(key);
+            break;
+        case Mode::Visual:
+            handleVisual(key);
+            break;
+        case Mode::CommandLine:
+            handleCommandLine(key);
+            break;
+        }
+    }
+
+    void handleNormal(int key) {
+        switch (key) {
+        case 'i':
+        case 'I':
+        case 'a':
+        case 'A':
+            current_mode = Mode::Insert;
+            break;
+
+        case 'v':
+        case 'V':
+        case CTRL_KEY('v'):
+            current_mode = Mode::Visual;
+            break;
+
+        case ':':
+            current_mode = Mode::CommandLine;
+            break;
+
+        case 'h':
+        case ARROW_LEFT:
+            if (cx > 0) {
+                --cx;
+            }
+            break;
+        case 'j':
+        case ARROW_DOWN:
+            ++cy;
+            break;
+        case 'k':
+        case ARROW_UP:
+            if (cy > 0) {
+                --cy;
+            }
+            break;
+        case 'l':
+        case ARROW_RIGHT:
+            ++cx;
+            break;
+
+        case 'Q':
+            should_quit = true;
+            break;
+        }
+    }
+
+    void handleInsert(int key) {
+        if (key == '\x1b') {
+            current_mode = Mode::Normal;
+            if (cx > 0) {
+                --cx;
+            }
+        }
+    }
+
+    void handleVisual(int key) {
+        if (key == '\x1b') {
+            current_mode = Mode::Normal;
+        } else {
+            handleNormal(key);
+            current_mode = Mode::Visual;
+        }
+    }
+
+    void handleCommandLine(int key) {
+        if (key == '\x1b') {
+            current_mode = Mode::Normal;
+        } else if (key == '\r') {
+            // execute command
+            current_mode = Mode::Normal;
+        }
+        // TODO
     }
 };
 
 int main() {
     try {
-        Terminal term;
-        char c;
-        while (true) {
-            c = term.readKey();
-
-            if (std::iscntrl(c)) {
-                std::cout << static_cast<int>(c) << "\r\n" << std::flush;
-            } else {
-                std::cout << static_cast<int>(c) << "(" << c << ")\r\n"
-                          << std::flush;
-            }
-
-            if (c == 'q') {
-                break;
-            }
-        }
+        Editor e;
+        e.run();
     } catch (const std::system_error &e) {
         std::cerr << "Fatal error: " << e.what() << "\r\n" << std::flush;
     }
