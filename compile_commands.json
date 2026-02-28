@@ -1,0 +1,18 @@
+[
+  {
+    "file": "aim.cpp",
+    "arguments": [
+      "clang++",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-std=c++20",
+      "-O2",
+      "aim.cpp",
+      "-o",
+      "aim"
+    ],
+    "directory": "/Users/ac/WorkingDirectory/build_my_own_text_editor",
+    "output": "aim"
+  }
+]
