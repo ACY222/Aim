@@ -1,6 +1,10 @@
 #include <cctype>
 #include <format>
 #include <iostream>
+#include <optional>
+#include <regex>
+#include <string>
+#include <sys/ioctl.h>
 #include <system_error>
 #include <termios.h>
 #include <unistd.h>
@@ -30,6 +34,12 @@ enum EditorKey {
 };
 
 /*** terminal ***/
+
+struct WindowSize {
+    int rows;
+    int cols;
+};
+
 class Terminal {
   private:
     struct termios orig_termios;
@@ -42,7 +52,46 @@ class Terminal {
         throw std::system_error(errno, std::system_category(), s);
     }
 
+    std::optional<WindowSize> getCursorPosition() {
+        std::string response;
+        char c;
+        // get cursor position
+        // the terminal will respond: `\x1b[行号;列号R`
+        if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) {
+            return std::nullopt;
+        }
+        while (read(STDIN_FILENO, &c, 1) == 1) {
+            response.push_back(c);
+            if (c == 'R') {
+                break;
+            }
+        }
+        std::string pattern = R"(\x1b\[(\d+);(\d+)R)";
+        std::regex r(pattern);
+        std::smatch results;
+
+        if (std::regex_match(response, results, r)) {
+            return WindowSize(std::stoi(results[1]), std::stoi(results[2]));
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    std::optional<WindowSize> getWindowSize() {
+        struct winsize ws;
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+            if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
+                return std::nullopt;
+            }
+
+            return getCursorPosition();
+        }
+        return WindowSize(ws.ws_row, ws.ws_col);
+    }
+
   public:
+    int rows, cols;
+
     Terminal() {
         // capture the original terminal attributes into orig_termios
         if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
@@ -64,6 +113,13 @@ class Terminal {
 
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
             die("tcsetattr");
+        }
+
+        if (auto size = getWindowSize()) {
+            rows = size->rows;
+            cols = size->cols;
+        } else {
+            die("getWindowSize");
         }
     }
 
@@ -161,6 +217,9 @@ class Editor {
 
   private:
     void refreshScreenDebug() {
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
+
         std::string status;
         status += "\r\n";
         switch (current_mode) {
@@ -281,4 +340,6 @@ int main() {
     } catch (const std::system_error &e) {
         std::cerr << "Fatal error: " << e.what() << "\r\n" << std::flush;
     }
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
 }
