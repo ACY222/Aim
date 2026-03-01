@@ -495,6 +495,15 @@ class Editor {
                 cx += num_spaces;
                 break;
             }
+            case '\r': {
+                std::string last = rows[cy].substr(cx);
+                rows[cy].erase(cx);
+                ++cy;
+                rows.insert(rows.begin() + cy, last);
+                cx = 0;
+                break;
+            }
+
             case DEL_KEY:
                 moveCursor(ARROW_RIGHT);
             case BACKSPACE:
@@ -519,15 +528,11 @@ class Editor {
             case ARROW_RIGHT:
                 moveCursor(key);
                 break;
+
+            default:
+                rows[cy].insert(rows[cy].begin() + cx, key);
+                ++cx;
             }
-            // if (key == '\t') {
-            //     int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
-            //     rows[cy].insert(rows[cy].begin() + cx, num_spaces, ' ');
-            //     cx += num_spaces;
-            // } else { // insert all other keys now
-            //     rows[cy].insert(rows[cy].begin() + cx, key);
-            //     ++cx;
-            // }
         }
     }
 
