@@ -512,6 +512,13 @@ class Editor {
                     rows.erase(rows.begin() + cy + 1);
                 }
                 break;
+
+            case ARROW_LEFT:
+            case ARROW_DOWN:
+            case ARROW_UP:
+            case ARROW_RIGHT:
+                moveCursor(key);
+                break;
             }
             // if (key == '\t') {
             //     int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
