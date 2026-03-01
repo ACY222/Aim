@@ -16,9 +16,15 @@
 /*** defines ***/
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+// the width of line numbers
 #define LINE_NUMBER_LEN 4
+// the width opf Mode and filename in status bar
 #define MODE_LEN 8
 #define FILENAME_LEN 10
+
+// how many spaces a Tab keystroke counts for
+#define SOFTTABSTOP 4
 
 enum class Mode {
     Normal,
@@ -443,6 +449,16 @@ class Editor {
             current_mode = Mode::Normal;
             if (cx > 0) {
                 --cx;
+            }
+        } else {
+            // expand tab into spaces
+            if (key == '\t') {
+                int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
+                rows[cy].insert(rows[cy].begin() + cx, num_spaces, ' ');
+                cx += num_spaces;
+            } else { // insert all other keys now
+                rows[cy].insert(rows[cy].begin() + cx, key);
+                ++cx;
             }
         }
     }
