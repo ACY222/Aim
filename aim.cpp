@@ -16,6 +16,9 @@
 /*** defines ***/
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define LINE_NUMBER_LEN 4
+#define MODE_LEN 8
+#define FILENAME_LEN 10
 
 enum class Mode {
     Normal,
@@ -270,8 +273,9 @@ class Editor {
         drawRows(ab);
         drawStatusBar(ab);
 
-        // move the cursor to (cx, cy)
-        ab += std::format("\x1b[{};{}H", cy - row_off + 1, cx - col_off + 1);
+        // move the cursor to (row, col)
+        ab += std::format("\x1b[{};{}H", cy - row_off + 1,
+                          cx - col_off + 1 + (LINE_NUMBER_LEN + 1));
         // make the cursor visible
         ab += "\x1b[?25h";
         // write to STDOUT_FILENO
@@ -282,6 +286,7 @@ class Editor {
         for (int y = 0; y < term.rows - 1; ++y) {
             int file_row = y + row_off;
             if (file_row < num_rows) {
+                ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
                 if (col_off < static_cast<int>(rows[file_row].size())) {
                     ab.append(rows[file_row], col_off, std::string::npos);
                 }
@@ -327,17 +332,18 @@ class Editor {
             break;
         }
 
-        std::string cursor_position = std::format("{}:{}    ", cy + 1, cx + 1);
+        std::string cursor_position =
+            std::format("{}:{}  {:>5}", cy + 1, cx + 1, num_rows);
 
-        int padding_len = term.cols - mode.size() - cursor_position.size();
+        int padding_len =
+            term.cols - MODE_LEN - cursor_position.size() - FILENAME_LEN;
         std::string padding =
             padding_len > 0 ? std::string(padding_len, ' ') : "";
 
-        ab += mode;
-        ab += padding;
-        ab += cursor_position;
+        ab += std::format("{:>{}}{:>{}}{}{}", mode, MODE_LEN, filename,
+                          FILENAME_LEN, padding, cursor_position);
         ab += "\x1b[K";
-        ab += "\x1b[m"; // reverse color
+        ab += "\x1b[m"; // reset color
     }
 
     void processKeyPress(int key) {
