@@ -391,7 +391,7 @@ class Editor {
         if (rows[cy].empty()) {
             cx = 0;
         } else {
-            cx = std::clamp(cx, 0, static_cast<int>(rows[cy].size() - 1));
+            cx = std::clamp(cx, 0, static_cast<int>(rows[cy].size()));
         }
         cy = std::clamp(cy, 0, num_rows - 1);
     }
@@ -405,6 +405,9 @@ class Editor {
             } else if (cy > 0) {
                 --cy;
                 cx = rows[cy].size();
+                if (current_mode == Mode::Normal) {
+                    --cx;
+                }
             }
             break;
         case 'j':
@@ -419,7 +422,7 @@ class Editor {
         case ARROW_RIGHT:
             if (cx < static_cast<int>(rows[cy].size()) - 1) {
                 ++cx;
-            } else if (cy < num_rows) {
+            } else if (cy < num_rows - 1) {
                 ++cy;
                 cx = 0;
             }
@@ -485,14 +488,39 @@ class Editor {
             }
         } else {
             // expand tab into spaces
-            if (key == '\t') {
+            switch (key) {
+            case '\t': {
                 int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
                 rows[cy].insert(rows[cy].begin() + cx, num_spaces, ' ');
                 cx += num_spaces;
-            } else { // insert all other keys now
-                rows[cy].insert(rows[cy].begin() + cx, key);
-                ++cx;
+                break;
             }
+            case DEL_KEY:
+                moveCursor(ARROW_RIGHT);
+            case BACKSPACE:
+            case CTRL_KEY('h'):
+                if (cx == 0 and cy == 0) {
+                    break;
+                }
+
+                if (cx > 0) {
+                    rows[cy].erase(rows[cy].begin() + cx - 1);
+                    --cx;
+                } else {
+                    moveCursor(ARROW_LEFT);
+                    rows[cy].append(rows[cy + 1]);
+                    rows.erase(rows.begin() + cy + 1);
+                }
+                break;
+            }
+            // if (key == '\t') {
+            //     int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
+            //     rows[cy].insert(rows[cy].begin() + cx, num_spaces, ' ');
+            //     cx += num_spaces;
+            // } else { // insert all other keys now
+            //     rows[cy].insert(rows[cy].begin() + cx, key);
+            //     ++cx;
+            // }
         }
     }
 
