@@ -385,12 +385,14 @@ class Editor {
             handleCommandLine(key);
             break;
         }
-
-        clampCursor(); // make sure that cx, cy won't be out of range
     }
 
     void clampCursor() {
-        cx = std::clamp(cx, 0, 200);
+        if (rows[cy].empty()) {
+            cx = 0;
+        } else {
+            cx = std::clamp(cx, 0, static_cast<int>(rows[cy].size() - 1));
+        }
         cy = std::clamp(cy, 0, num_rows - 1);
     }
 
@@ -415,14 +417,16 @@ class Editor {
             break;
         case 'l':
         case ARROW_RIGHT:
-            if (cx < static_cast<int>(rows[cy].size())) {
+            if (cx < static_cast<int>(rows[cy].size()) - 1) {
                 ++cx;
             } else if (cy < num_rows) {
                 ++cy;
                 cx = 0;
             }
         }
+        clampCursor(); // make sure that cx, cy won't be out of range
     }
+
     void handleNormal(int key) {
         switch (key) {
         case 'Q':
@@ -462,6 +466,13 @@ class Editor {
             break;
         case PAGE_DOWN:
             cy += term.rows;
+            break;
+
+        case HOME_KEY:
+            cx = 0;
+            break;
+        case END_KEY:
+            cx = rows[cy].size() - 1;
             break;
         }
     }
