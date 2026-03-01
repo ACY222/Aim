@@ -244,6 +244,15 @@ class Editor {
         }
     }
 
+    void run() {
+        while (!should_quit) {
+            refreshScreen();
+            int key = term.readKey();
+            processKeyPress(key);
+        }
+    }
+
+  private:
     void scroll() {
         if (cy < row_off) { // scroll up
             row_off = cy;
@@ -258,15 +267,6 @@ class Editor {
         }
     }
 
-    void run() {
-        while (!should_quit) {
-            refreshScreen();
-            int key = term.readKey();
-            processKeyPress(key);
-        }
-    }
-
-  private:
     void setCursorStyle(std::string &ab) {
         switch (current_mode) {
         case Mode::Normal:
@@ -389,11 +389,11 @@ class Editor {
     }
 
     void clampCursor() {
-        if (rows[cy].empty()) {
-            cx = 0;
-        } else {
-            cx = std::clamp(cx, 0, static_cast<int>(rows[cy].size()));
+        int high = static_cast<int>(rows[cy].size());
+        if (current_mode != Mode::Insert) {
+            --high;
         }
+        cx = std::clamp(cx, 0, high);
         cy = std::clamp(cy, 0, num_rows - 1);
     }
 
@@ -427,6 +427,9 @@ class Editor {
                 ++cy;
                 cx = 0;
             }
+            break;
+        case 'G':
+            cy = num_rows - 1;
         }
         clampCursor(); // make sure that cx, cy won't be out of range
     }
@@ -462,6 +465,7 @@ class Editor {
         case ARROW_DOWN:
         case ARROW_UP:
         case ARROW_RIGHT:
+        case 'G':
             moveCursor(key);
             break;
 
