@@ -21,7 +21,7 @@
 #define LINE_NUMBER_LEN 4
 // the width opf Mode and filename in status bar
 #define MODE_LEN 8
-#define FILENAME_LEN 10
+#define FILENAME_LEN 16
 
 // how many spaces a Tab keystroke counts for
 #define SOFTTABSTOP 4
@@ -219,15 +219,19 @@ class Editor {
 
     std::string filename;
     std::vector<std::string> rows;
-    int num_rows;
     bool should_quit;
 
   public:
     Editor()
         : current_mode(Mode::Normal), cx(0), cy(0), row_off(0), col_off(0),
-          num_rows(0), should_quit(false) {}
+          should_quit(false) {
+        if (rows.empty()) {
+            rows.push_back("");
+        }
+    }
 
     void openFile(std::string_view filepath) {
+        rows.erase(rows.begin(), rows.end());
         filename = filepath;
         std::ifstream file(filename);
 
@@ -239,8 +243,9 @@ class Editor {
                 }
 
                 rows.push_back(line);
-                ++num_rows;
             }
+        } else if (rows.empty()) {
+            rows.push_back("");
         }
     }
 
@@ -306,14 +311,14 @@ class Editor {
     void drawRows(std::string &ab) {
         for (int y = 0; y < term.rows - 1; ++y) {
             int file_row = y + row_off;
-            if (file_row < num_rows) {
+            if (file_row < static_cast<int>(rows.size())) {
                 ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
                 if (col_off < static_cast<int>(rows[file_row].size())) {
                     ab.append(rows[file_row], col_off,
                               term.cols - LINE_NUMBER_LEN - 1);
                 }
             } else {
-                if (num_rows == 0 and y == term.rows / 3) {
+                if (rows.size() == 0 and y == term.rows / 3) {
                     std::string welcome = "Welcome to AIM editor!";
                     int padding_len = (term.cols - welcome.size()) / 2;
                     if (padding_len) {
@@ -354,15 +359,16 @@ class Editor {
             break;
         }
 
-        std::string cursor_position =
-            std::format("{}:{}  {:>5}", cy + 1, cx + 1, num_rows);
+        std::string display_name = filename.empty() ? "[No Name]" : filename;
+        std::string cursor_position = std::format(
+            "{}:{}  {:>5}", cy + 1, cx + 1, static_cast<int>(rows.size()));
 
         int padding_len =
             term.cols - MODE_LEN - cursor_position.size() - FILENAME_LEN;
         std::string padding =
             padding_len > 0 ? std::string(padding_len, ' ') : "";
 
-        ab += std::format("{:>{}}{:>{}}{}{}", mode, MODE_LEN, filename,
+        ab += std::format("{:>{}}{:>{}}{}{}", mode, MODE_LEN, display_name,
                           FILENAME_LEN, padding, cursor_position);
         ab += "\x1b[K";
         ab += "\x1b[m"; // reset color
@@ -386,52 +392,6 @@ class Editor {
             handleCommandLine(key);
             break;
         }
-    }
-
-    void clampCursor() {
-        int high = static_cast<int>(rows[cy].size());
-        if (current_mode != Mode::Insert) {
-            --high;
-        }
-        cx = std::clamp(cx, 0, high);
-        cy = std::clamp(cy, 0, num_rows - 1);
-    }
-
-    void moveCursor(int key) {
-        switch (key) {
-        case 'h':
-        case ARROW_LEFT:
-            if (cx > 0) {
-                --cx;
-            } else if (cy > 0) {
-                --cy;
-                cx = rows[cy].size();
-                if (current_mode == Mode::Normal) {
-                    --cx;
-                }
-            }
-            break;
-        case 'j':
-        case ARROW_DOWN:
-            ++cy;
-            break;
-        case 'k':
-        case ARROW_UP:
-            --cy;
-            break;
-        case 'l':
-        case ARROW_RIGHT:
-            if (cx < static_cast<int>(rows[cy].size()) - 1) {
-                ++cx;
-            } else if (cy < num_rows - 1) {
-                ++cy;
-                cx = 0;
-            }
-            break;
-        case 'G':
-            cy = num_rows - 1;
-        }
-        clampCursor(); // make sure that cx, cy won't be out of range
     }
 
     void handleNormal(int key) {
@@ -501,10 +461,15 @@ class Editor {
                 break;
             }
             case '\r': {
-                std::string last = rows[cy].substr(cx);
-                rows[cy].erase(cx);
+                if (cx < static_cast<int>(rows[cy].size())) {
+                    std::string last = rows[cy].substr(cx);
+                    rows[cy].erase(cx);
+                    rows.insert(rows.begin() + cy + 1, last);
+                }
                 ++cy;
-                rows.insert(rows.begin() + cy, last);
+                if (cy == static_cast<int>(rows.size())) {
+                    rows.push_back("");
+                }
                 cx = 0;
                 break;
             }
@@ -535,8 +500,7 @@ class Editor {
                 break;
 
             default:
-                rows[cy].insert(rows[cy].begin() + cx, key);
-                ++cx;
+                insertChar(key);
             }
         }
     }
@@ -577,6 +541,66 @@ class Editor {
             current_mode = Mode::Normal;
         }
         // TODO
+    }
+
+    void clampCursor() {
+        int high = static_cast<int>(rows[cy].size());
+        if (high > 0 and current_mode != Mode::Insert) {
+            --high;
+        }
+        cx = std::clamp(cx, 0, high);
+        cy = std::clamp(cy, 0, static_cast<int>(rows.size()) - 1);
+    }
+
+    void moveCursor(int key) {
+        switch (key) {
+        case 'h':
+        case ARROW_LEFT:
+            if (cx > 0) {
+                --cx;
+            } else if (cy > 0) {
+                --cy;
+                cx = rows[cy].size();
+                if (current_mode == Mode::Normal) {
+                    --cx;
+                }
+            }
+            break;
+        case 'j':
+        case ARROW_DOWN:
+            ++cy;
+            break;
+        case 'k':
+        case ARROW_UP:
+            --cy;
+            break;
+        case 'l':
+        case ARROW_RIGHT: {
+            int row_size = static_cast<int>(rows[cy].size());
+            if (current_mode != Mode::Insert) {
+                --row_size;
+            }
+            if (cx < row_size) {
+                ++cx;
+            } else if (cy < static_cast<int>(rows.size()) - 1) {
+                ++cy;
+                cx = 0;
+            }
+            break;
+        }
+        case 'G':
+            cy = rows.size() - 1;
+        }
+        clampCursor(); // make sure that cx, cy won't be out of range
+    }
+
+    void insertChar(char c) {
+        if (cy == static_cast<int>(rows.size())) {
+            rows.push_back("");
+        }
+
+        rows[cy].insert(rows[cy].begin() + cx, c);
+        ++cx;
     }
 };
 
