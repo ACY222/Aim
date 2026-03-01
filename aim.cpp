@@ -377,7 +377,12 @@ class Editor {
         switch (key) {
         case 'h':
         case ARROW_LEFT:
-            --cx;
+            if (cx > 0) {
+                --cx;
+            } else if (cy > 0) {
+                --cy;
+                cx = rows[cy].size();
+            }
             break;
         case 'j':
         case ARROW_DOWN:
@@ -389,8 +394,12 @@ class Editor {
             break;
         case 'l':
         case ARROW_RIGHT:
-            ++cx;
-            break;
+            if (cx < static_cast<int>(rows[cy].size())) {
+                ++cx;
+            } else if (cy < num_rows) {
+                ++cy;
+                cx = 0;
+            }
         }
     }
     void handleNormal(int key) {
