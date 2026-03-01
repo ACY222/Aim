@@ -2,13 +2,16 @@
 #include <cctype>
 #include <cstdio>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <sys/ioctl.h>
 #include <system_error>
 #include <termios.h>
 #include <unistd.h>
+#include <vector>
 
 /*** defines ***/
 
@@ -203,10 +206,48 @@ class Editor {
     Terminal term;
     Mode current_mode;
     int cx, cy;
+    int row_off, col_off;
+
+    std::string filename;
+    std::vector<std::string> rows;
+    int num_rows;
     bool should_quit;
 
   public:
-    Editor() : current_mode(Mode::Normal), cx(0), cy(0), should_quit(false) {}
+    Editor()
+        : current_mode(Mode::Normal), cx(0), cy(0), row_off(0), col_off(0),
+          num_rows(0), should_quit(false) {}
+
+    void openFile(std::string_view filepath) {
+        filename = filepath;
+        std::ifstream file(filename);
+
+        if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) {
+                if (!line.empty() and line.back() == '\r') {
+                    line.pop_back();
+                }
+
+                rows.push_back(line);
+                ++num_rows;
+            }
+        }
+    }
+
+    void scroll() {
+        if (cy < row_off) {
+            row_off = cy;
+        } else if (cy >= row_off + term.rows - 1) {
+            row_off = cy - term.rows + 2;
+        }
+
+        if (cx < col_off) {
+            col_off = cx;
+        } else if (cx >= col_off + term.cols) {
+            col_off = cx - term.cols + 1;
+        }
+    }
 
     void run() {
         while (!should_quit) {
@@ -218,6 +259,7 @@ class Editor {
 
   private:
     void refreshScreen() {
+        scroll();
         std::string ab; // append buffer
 
         // hide the cursor
@@ -238,14 +280,18 @@ class Editor {
 
     void drawRows(std::string &ab) {
         for (int y = 0; y < term.rows - 1; ++y) {
-            if (y == term.rows / 3) {
-                std::string welcome = "Welcome to AIM editor!";
-                int padding_len = (term.cols - welcome.size()) / 2;
-                ab.append(padding_len, ' ');
-                ab += welcome;
-                ab.append(padding_len, ' ');
+            if (y < num_rows) {
+                ab += rows[y];
             } else {
-                ab += "~";
+                if (y == term.rows / 3) {
+                    std::string welcome = "Welcome to AIM editor!";
+                    int padding_len = (term.cols - welcome.size()) / 2;
+                    ab.append(padding_len, ' ');
+                    ab += welcome;
+                    ab.append(padding_len, ' ');
+                } else {
+                    ab += "~";
+                }
             }
             ab += "\x1b[K"; // clear the rest of the line
             ab += "\r\n";
@@ -418,9 +464,12 @@ class Editor {
     }
 };
 
-int main() {
+int main(int argc, char *argv[]) {
     try {
         Editor e;
+        if (argc >= 2) {
+            e.openFile(argv[1]);
+        }
         e.run();
     } catch (const std::system_error &e) {
         std::cerr << "Fatal error: " << e.what() << "\r\n" << std::flush;
