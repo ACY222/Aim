@@ -236,9 +236,9 @@ class Editor {
     }
 
     void scroll() {
-        if (cy < row_off) {
+        if (cy < row_off) { // scroll up
             row_off = cy;
-        } else if (cy >= row_off + term.rows - 1) {
+        } else if (cy >= row_off + term.rows - 1) { // scroll down
             row_off = cy - term.rows + 2;
         }
 
@@ -271,7 +271,7 @@ class Editor {
         drawStatusBar(ab);
 
         // move the cursor to (cx, cy)
-        ab += std::format("\x1b[{};{}H", cy + 1, cx + 1);
+        ab += std::format("\x1b[{};{}H", cy - row_off + 1, cx - col_off + 1);
         // make the cursor visible
         ab += "\x1b[?25h";
         // write to STDOUT_FILENO
@@ -280,8 +280,11 @@ class Editor {
 
     void drawRows(std::string &ab) {
         for (int y = 0; y < term.rows - 1; ++y) {
-            if (y < num_rows) {
-                ab += rows[y];
+            int file_row = y + row_off;
+            if (file_row < num_rows) {
+                if (col_off < static_cast<int>(rows[file_row].size())) {
+                    ab.append(rows[file_row], col_off, std::string::npos);
+                }
             } else {
                 if (y == term.rows / 3) {
                     std::string welcome = "Welcome to AIM editor!";
@@ -356,8 +359,8 @@ class Editor {
     }
 
     void clampCursor() {
-        cx = std::clamp(cx, 0, term.cols - 1);
-        cy = std::clamp(cy, 0, term.rows - 2); // status bar
+        cx = std::clamp(cx, 0, 200);
+        cy = std::clamp(cy, 0, num_rows - 1);
     }
 
     void moveCursor(int key) {
