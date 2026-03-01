@@ -425,6 +425,10 @@ class Editor {
     }
     void handleNormal(int key) {
         switch (key) {
+        case 'Q':
+            should_quit = true;
+            break;
+
         case 'i':
         case 'I':
         case 'a':
@@ -453,8 +457,11 @@ class Editor {
             moveCursor(key);
             break;
 
-        case 'Q':
-            should_quit = true;
+        case PAGE_UP:
+            cy -= term.rows;
+            break;
+        case PAGE_DOWN:
+            cy += term.rows;
             break;
         }
     }
