@@ -286,9 +286,13 @@ class Editor {
                     ab.append(rows[file_row], col_off, std::string::npos);
                 }
             } else {
-                if (y == term.rows / 3) {
+                if (num_rows == 0 and y == term.rows / 3) {
                     std::string welcome = "Welcome to AIM editor!";
                     int padding_len = (term.cols - welcome.size()) / 2;
+                    if (padding_len) {
+                        ab.append(1, '~');
+                        --padding_len;
+                    }
                     ab.append(padding_len, ' ');
                     ab += welcome;
                     ab.append(padding_len, ' ');
