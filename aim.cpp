@@ -246,6 +246,7 @@ class Editor {
                 rows.push_back(line);
             }
         } else if (rows.empty()) {
+            // fails to open the file
             rows.push_back("");
         }
     }
@@ -399,6 +400,10 @@ class Editor {
         switch (key) {
         case 'Q':
             should_quit = true;
+            break;
+
+        case 'S':
+            saveFile();
             break;
 
         case 'i':
@@ -622,6 +627,32 @@ class Editor {
 
         ++cy;
         cx = 0;
+    }
+
+    void saveFile() {
+        if (filename.empty()) {
+            // do something later
+        }
+
+        // std::ios::truc ensures we wipe the existing file clean before writing
+        // the new state
+        std::ofstream file(filename, std::ios::trunc);
+
+        if (!file.is_open()) {
+            // fails to open the file
+            return;
+        }
+
+        for (const auto &row : rows) {
+            file << row << '\n';
+        }
+
+        if (file.bad()) {
+            // I/O failure when writing to disk
+            return;
+        }
+
+        // file saved
     }
 };
 
