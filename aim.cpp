@@ -398,6 +398,7 @@ class Editor {
 
     void handleNormal(int key) {
         switch (key) {
+        /*** file I/O ***/
         case 'Q':
             should_quit = true;
             break;
@@ -406,23 +407,54 @@ class Editor {
             saveFile();
             break;
 
-        case 'i':
-        case 'I':
+        /*** change mode ***/
+        // Insert mode
         case 'a':
+            ++cx;
+            current_mode = Mode::Insert;
+            break;
         case 'A':
+            cx = std::ssize(rows[cy]);
             current_mode = Mode::Insert;
             break;
 
+        case 'I':
+            cx = 0;
+        case 'i':
+            current_mode = Mode::Insert;
+            break;
+
+        case 'o':
+            ++cy;
+        case 'O':
+            rows.insert(rows.begin() + cy, "");
+            cx = 0;
+            current_mode = Mode::Insert;
+            break;
+
+        case 's':
+            rows[cy].erase(rows[cy].begin() + cx);
+            current_mode = Mode::Insert;
+            break;
+
+        // case 'S':    // currently, we use `S` to save
+        //     rows[cy].erase(cx);
+        //     current_mode = Mode::Insert;
+        //     break;
+
+        // Visual mode
         case 'v':
         case 'V':
         case CTRL_KEY('v'):
             current_mode = Mode::Visual;
             break;
 
+        // CommandLine mode
         case ':':
             current_mode = Mode::CommandLine;
             break;
 
+        /*** move operations ***/
         case 'h':
         case 'j':
         case 'k':
@@ -436,17 +468,48 @@ class Editor {
             break;
 
         case PAGE_UP:
+        case CTRL_KEY('b'):
             cy -= term.rows;
             break;
         case PAGE_DOWN:
+        case CTRL_KEY('f'):
             cy += term.rows;
             break;
 
+        case CTRL_KEY('u'):
+            cy -= term.rows / 2;
+            break;
+        case CTRL_KEY('d'):
+            cy += term.rows / 2;
+            break;
+
         case HOME_KEY:
+        case '0':
             cx = 0;
             break;
         case END_KEY:
-            cx = rows[cy].size() - 1;
+        case '$':
+            cx = rows[cy].empty() ? 0 : rows[cy].size() - 1;
+            break;
+
+        /*** edit in normal mode ***/
+        case 'J': // merge current line and next line
+            if (cy < std::ssize(rows) - 1) {
+                auto old_len = std::ssize(rows[cy]);
+
+                if (!rows[cy].empty() and !rows[cy + 1].empty() and
+                    rows[cy].back() != ' ') {
+                    rows[cy].push_back(' ');
+                    ++old_len;
+                }
+                rows[cy].append(rows[cy + 1]);
+                rows.erase(rows.begin() + cy + 1);
+
+                cx = old_len - 1;
+            }
+            break;
+        case 'x': // delete the character at the cursor position
+            rows[cy].erase(rows[cy].begin() + cx);
             break;
         }
     }
@@ -612,6 +675,7 @@ class Editor {
         ++cx;
     }
 
+    // call in insert mode
     void insertNewLine() {
         // at the end of the buffer
         if (cy == std::ssize(rows)) {
