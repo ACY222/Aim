@@ -221,11 +221,13 @@ class Editor {
     std::string filename;
     std::vector<std::string> rows;
     bool should_quit;
+    std::string command_buffer;
+    std::string message;
 
   public:
     Editor()
         : current_mode(Mode::Normal), cx(0), cy(0), row_off(0), col_off(0),
-          should_quit(false) {
+          should_quit(false), message("Welcome to Aim!") {
         if (rows.empty()) {
             rows.push_back("");
         }
@@ -263,8 +265,8 @@ class Editor {
     void scroll() {
         if (cy < row_off) { // scroll up
             row_off = cy;
-        } else if (cy >= row_off + term.rows - 1) { // scroll down
-            row_off = cy - term.rows + 2;
+        } else if (cy >= row_off + term.rows - 2) { // scroll down
+            row_off = cy - term.rows + 3;
         }
 
         if (cx < col_off) {
@@ -300,6 +302,7 @@ class Editor {
 
         drawRows(ab);
         drawStatusBar(ab);
+        drawMessageBar(ab);
 
         // move the cursor to (row, col)
         ab += std::format("\x1b[{};{}H", cy - row_off + 1,
@@ -311,7 +314,7 @@ class Editor {
     }
 
     void drawRows(std::string &ab) {
-        for (int y = 0; y < term.rows - 1; ++y) {
+        for (int y = 0; y < term.rows - 2; ++y) {
             int file_row = y + row_off;
             if (file_row < std::ssize(rows)) {
                 ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
@@ -376,6 +379,16 @@ class Editor {
         ab += "\x1b[m"; // reset color
     }
 
+    void drawMessageBar(std::string &ab) {
+        ab += "\x1b[K";
+
+        if (current_mode == Mode::CommandLine) {
+            ab += std::format(":{}", command_buffer);
+        } else if (!message.empty()) {
+            ab += message;
+        }
+    }
+
     void processKeyPress(int key) {
         switch (current_mode) {
         case Mode::Normal:
@@ -397,6 +410,9 @@ class Editor {
     }
 
     void handleNormal(int key) {
+        // clear the message to show the keys
+        message.clear();
+
         switch (key) {
         /*** file I/O ***/
         case 'Q':
@@ -452,6 +468,7 @@ class Editor {
         // CommandLine mode
         case ':':
             current_mode = Mode::CommandLine;
+            message.clear();
             break;
 
         /*** move operations ***/
@@ -512,6 +529,7 @@ class Editor {
             rows[cy].erase(rows[cy].begin() + cx);
             break;
         }
+        clampCursor();
     }
 
     void handleInsert(int key) {
@@ -591,11 +609,36 @@ class Editor {
     void handleCommandLine(int key) {
         if (key == '\x1b') {
             current_mode = Mode::Normal;
+            command_buffer.clear();
+            message.clear();
         } else if (key == '\r') {
-            // execute command
-            current_mode = Mode::Normal;
+            executeCommand();
+        } else if (key == BACKSPACE or key == CTRL_KEY('h')) {
+            if (command_buffer.empty()) {
+                current_mode = Mode::Normal;
+            } else {
+                command_buffer.pop_back();
+            }
+        } else if (std::isprint(key)) {
+            command_buffer.push_back(static_cast<char>(key));
         }
-        // TODO
+    }
+
+    void executeCommand() {
+        if (command_buffer == "q") {
+            should_quit = true;
+        } else if (command_buffer == "w") {
+            saveFile();
+        } else if (command_buffer == "wq") {
+            saveFile();
+            should_quit = true;
+        } else {
+            message =
+                std::format("Not an editor command yet: {}", command_buffer);
+        }
+
+        command_buffer.clear();
+        current_mode = Mode::Normal;
     }
 
     void clampCursor() {
