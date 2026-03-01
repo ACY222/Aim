@@ -253,8 +253,8 @@ class Editor {
 
         if (cx < col_off) {
             col_off = cx;
-        } else if (cx >= col_off + term.cols) {
-            col_off = cx - term.cols + 1;
+        } else if (cx >= col_off + term.cols - (LINE_NUMBER_LEN + 1)) {
+            col_off = cx - term.cols + 1 + (LINE_NUMBER_LEN + 1);
         }
     }
 
@@ -309,7 +309,8 @@ class Editor {
             if (file_row < num_rows) {
                 ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
                 if (col_off < static_cast<int>(rows[file_row].size())) {
-                    ab.append(rows[file_row], col_off, std::string::npos);
+                    ab.append(rows[file_row], col_off,
+                              term.cols - LINE_NUMBER_LEN - 1);
                 }
             } else {
                 if (num_rows == 0 and y == term.rows / 3) {
