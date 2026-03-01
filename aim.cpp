@@ -267,6 +267,20 @@ class Editor {
     }
 
   private:
+    void setCursorStyle(std::string &ab) {
+        switch (current_mode) {
+        case Mode::Normal:
+        case Mode::Visual:
+        case Mode::VisualLine:
+            ab += "\x1b[2 q";
+            break;
+        case Mode::Insert:
+        case Mode::CommandLine:
+            ab += "\x1b[6 q";
+            break;
+        }
+    }
+
     void refreshScreen() {
         scroll();
         std::string ab; // append buffer
@@ -275,6 +289,7 @@ class Editor {
         ab += "\x1b[?25l";
         // reposition the cursor to top-left
         ab += "\x1b[H";
+        setCursorStyle(ab);
 
         drawRows(ab);
         drawStatusBar(ab);
