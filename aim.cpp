@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <iterator>
 #include <optional>
@@ -19,13 +20,13 @@
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 // the width of line numbers
-#define LINE_NUMBER_LEN 4
+constexpr int LINE_NUMBER_LEN = 4;
 // the width opf Mode and filename in status bar
-#define MODE_LEN 8
-#define FILENAME_LEN 16
+constexpr int MODE_LEN = 8;
+constexpr int FILENAME_LEN = 16;
 
 // how many spaces a Tab keystroke counts for
-#define SOFTTABSTOP 4
+constexpr int SOFTTABSTOP = 4;
 
 enum class Mode {
     Normal,
@@ -224,6 +225,18 @@ class Editor {
     std::string command_buffer;
     std::string message;
 
+    // --- Vim Grammar State ---
+    int multiplier{0};           // stores the [count]
+    char pending_operator{'\0'}; // stores 'd', 'y', 'c', etc.
+
+    // --- Clipboard (register) ---
+    std::vector<std::string> yank_register; // stores copied/deleted lines
+
+    void resetCommandState() {
+        multiplier = 0;
+        pending_operator = '\0';
+    }
+
   public:
     Editor()
         : current_mode(Mode::Normal), cx(0), cy(0), row_off(0), col_off(0),
@@ -247,7 +260,9 @@ class Editor {
 
                 rows.push_back(line);
             }
-        } else if (rows.empty()) {
+        }
+
+        if (rows.empty()) {
             // fails to open the file
             rows.push_back("");
         }
@@ -413,6 +428,17 @@ class Editor {
         // clear the message to show the keys
         message.clear();
 
+        if (key == '\x1b') {
+            resetCommandState();
+        }
+
+        if (key >= '0' and key <= '9') {
+            multiplier = multiplier * 10 + (key - '0');
+            return;
+        }
+
+        int count = multiplier == 0 ? 1 : multiplier;
+
         switch (key) {
         /*** file I/O ***/
         case 'Q':
@@ -421,6 +447,18 @@ class Editor {
 
         case 'S':
             saveFile();
+            break;
+
+        case 'c':
+        case 'd':
+        case 'y':
+            handleOperator(key, count);
+            break;
+
+        case 'P':
+        case 'p':
+            pasteRegister(key, count);
+            resetCommandState();
             break;
 
         /*** change mode ***/
@@ -449,7 +487,9 @@ class Editor {
             break;
 
         case 's':
-            rows[cy].erase(rows[cy].begin() + cx);
+            if (rows[cy].empty()) {
+                rows[cy].erase(rows[cy].begin() + cx);
+            }
             current_mode = Mode::Insert;
             break;
 
@@ -480,6 +520,16 @@ class Editor {
         case ARROW_DOWN:
         case ARROW_UP:
         case ARROW_RIGHT:
+            if (pending_operator) { // operations like d3j
+                executeOperatorAction(pending_operator, key, count);
+                pending_operator = '\0';
+            } else { // operations like 4l
+                for (int i = 0; i < count; ++i) {
+                    moveCursor(key);
+                }
+            }
+            multiplier = 0;
+            break;
         case 'G':
             moveCursor(key);
             break;
@@ -526,7 +576,9 @@ class Editor {
             }
             break;
         case 'x': // delete the character at the cursor position
-            rows[cy].erase(rows[cy].begin() + cx);
+            if (!rows[cy].empty()) {
+                rows[cy].erase(rows[cy].begin() + cx);
+            }
             break;
         }
         clampCursor();
@@ -624,6 +676,111 @@ class Editor {
         }
     }
 
+    // [count] [motion]
+    // like 2w, 3j
+    void handleOperator(int op, int count) {
+        if (pending_operator == '\0') {
+            pending_operator = op;
+            return;
+        } else if (pending_operator == op) {
+            // like dd, yy, cc
+            executeLineOperator(op, count);
+        } // else pending_operator != op_key
+        pending_operator = '\0';
+    }
+
+    inline bool isLineMotion(int motion) {
+        return motion == 'j' or motion == ARROW_DOWN or motion == 'k' or
+               motion == ARROW_UP;
+    }
+
+    inline bool isToRight(int motion) {
+        return motion == 'l' or motion == ARROW_RIGHT;
+    }
+
+    // [operator] [count] [motion]
+    // like d2j, c3l, y4k, and d2w, c3e
+    void executeOperatorAction(char op, int motion, int count) {
+        int coefficient;
+        switch (motion) {
+        case 'j':
+        case ARROW_DOWN:
+        case 'l':
+        case ARROW_RIGHT:
+            coefficient = 1;
+            break;
+        case 'k':
+        case ARROW_UP:
+        case 'h':
+        case ARROW_LEFT:
+            coefficient = -1;
+            break;
+        }
+
+        if (isLineMotion(motion)) {
+            // d2k == kkd2j
+            if (coefficient == -1) {
+                cy = std::max(cy - count, 0);
+            }
+            executeLineOperator(op, count + 1);
+        } else {
+            executeCharsOperator(op, isToRight(motion), count);
+        }
+    }
+
+    // d3l
+    void executeCharsOperator(int op, bool isToRight, int count) {
+        yank_register.clear();
+        int chars_to_affect;
+        if (isToRight) {
+            chars_to_affect =
+                std::min(count, static_cast<int>(std::ssize(rows[cy])) - cx);
+            yank_register.push_back(rows[cy].substr(cx, chars_to_affect));
+            if (op == 'c' or op == 'd') {
+                rows[cy].erase(cx, chars_to_affect);
+            }
+        } else {
+            chars_to_affect = std::min(count, cx);
+            yank_register.push_back(
+                rows[cy].substr(cx - chars_to_affect, chars_to_affect));
+            if (op == 'c' or op == 'd') {
+                rows[cy].erase(cx - chars_to_affect, chars_to_affect);
+            }
+            cx -= chars_to_affect;
+        }
+
+        if (op == 'c') {
+            current_mode = Mode::Insert;
+        }
+        multiplier = 0;
+    }
+
+    // cc, dd, yy
+    void executeLineOperator(int op, int count) {
+        int lines_to_affect =
+            std::min(count, static_cast<int>(std::ssize(rows) - cy));
+
+        yank_register.clear();
+        for (int i = 0; i < lines_to_affect; ++i) {
+            yank_register.push_back(rows[cy + i]);
+        }
+
+        if (op == 'c') {
+            for (int i = 0; i < lines_to_affect; ++i) {
+                rows[cy + i].clear();
+            }
+            current_mode = Mode::Insert;
+        } else if (op == 'd') {
+            rows.erase(rows.begin() + cy, rows.begin() + cy + lines_to_affect);
+        }
+        multiplier = 0;
+    }
+
+    void pasteRegister(char op, int count) {
+        // do something
+        multiplier = 0;
+    }
+
     void executeCommand() {
         if (command_buffer == "q") {
             should_quit = true;
@@ -703,7 +860,6 @@ class Editor {
         } else {
             moveCursor(ARROW_LEFT);
             rows[cy].append(rows[cy + 1]);
-            rows[cy] += rows[cy + 1];
             rows.erase(rows.begin() + cy + 1);
         }
         return;
@@ -738,7 +894,8 @@ class Editor {
 
     void saveFile() {
         if (filename.empty()) {
-            // do something later
+            message = "Error! No filename";
+            return;
         }
 
         // std::ios::truc ensures we wipe the existing file clean before writing
@@ -746,7 +903,7 @@ class Editor {
         std::ofstream file(filename, std::ios::trunc);
 
         if (!file.is_open()) {
-            // fails to open the file
+            message = "Error! Failed to open file";
             return;
         }
 
@@ -755,11 +912,11 @@ class Editor {
         }
 
         if (file.bad()) {
-            // I/O failure when writing to disk
+            message = "Error! I/O failure when writing files";
             return;
         }
 
-        // file saved
+        message = std::format("\"{}\" saved!", filename);
     }
 };
 
