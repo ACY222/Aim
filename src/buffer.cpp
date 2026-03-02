@@ -79,6 +79,15 @@ void Buffer::deleteChar(int &cx, int &cy) {
     }
 }
 
+void Buffer::insertString(int &cx, int cy, const std::string &str) {
+    if (cy == getLineCount()) {
+        rows.emplace_back("");
+    }
+
+    rows[cy].insert(rows[cy].begin() + cx, str.begin(), str.end());
+    cx += str.size();
+}
+
 void Buffer::insertNewLine(int &cx, int &cy) {
     if (cy == getLineCount()) { // just in case cy is out of range
         rows.emplace_back("");
@@ -93,6 +102,10 @@ void Buffer::insertNewLine(int &cx, int &cy) {
     }
 
     cx = 0;
+}
+
+void Buffer::insertLines(int cy, const std::vector<std::string> &lines) {
+    rows.insert(rows.begin() + cy, lines.begin(), lines.end());
 }
 
 /*** row operations ***/

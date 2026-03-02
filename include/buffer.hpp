@@ -28,7 +28,10 @@ class Buffer {
     /*** text editing ***/
     void insertChar(int &cx, const int cy, const char c);
     void deleteChar(int &cx, int &cy);
+    void insertString(int &cx, int cy, const std::string &str);
+
     void insertNewLine(int &cx, int &cy);
+    void insertLines(int cy, const std::vector<std::string> &line);
 
     /*** row operations ***/
     void deleteLines(int &cy, const int count);
