@@ -74,8 +74,8 @@ void Buffer::deleteChar(const int cx, const int cy) {
         return;
     }
 
-    if (cx > 0) {
-        rows[cy].erase(rows[cy].begin() + cx - 1);
+    if (cx < getLineLength(cy) and cx >= 0) {
+        rows[cy].erase(rows[cy].begin() + cx);
     }
 }
 
@@ -129,7 +129,9 @@ void Buffer::deleteLines(const int cy, const int count) {
     }
 
     int lines_to_affect = std::min(count, getLineCount() - cy);
-    rows.erase(rows.begin() + cy, rows.begin() + cy + lines_to_affect);
+    if (lines_to_affect > 0) {
+        rows.erase(rows.begin() + cy, rows.begin() + cy + lines_to_affect);
+    }
 
     if (rows.empty()) {
         rows.emplace_back("");

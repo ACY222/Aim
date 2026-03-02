@@ -231,8 +231,18 @@ void Editor::handleInsert(int key) {
         break;
     case BACKSPACE:
     case CTRL_KEY('h'):
-        buffer.deleteChar(cx, cy);
-        --cx;
+        if (cx == 0 and cy == 0) {
+            break;
+        }
+        if (cx > 0) {
+            buffer.deleteChar(cx - 1, cy);
+            --cx;
+        } else { // cx == 0
+            cx = buffer.getLineLength(cy - 1);
+            buffer.appendString(cy - 1, buffer.getLine(cy));
+            buffer.deleteLines(cy, 1);
+            --cy;
+        }
         break;
 
     case ARROW_LEFT:
