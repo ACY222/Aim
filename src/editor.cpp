@@ -222,6 +222,7 @@ void Editor::handleInsert(int key) {
 
     case '\r': // Enter
         buffer.insertNewLine(cx, cy);
+        ++cy;
         break;
 
     case DEL_KEY:
@@ -425,7 +426,11 @@ void Editor::pasteRegister(char op, int count) {
             to_paste += yank_register[0];
         }
         if (op == 'p') {
-            buffer.insertString(cx + 1, cy, yank_register[0]);
+            if (buffer.isEmpty(cy)) {
+                buffer.insertString(cx, cy, yank_register[0]);
+            } else {
+                buffer.insertString(cx + 1, cy, yank_register[0]);
+            }
             cx = cx + std::size(yank_register[0]);
         } else { // op == 'P'
             buffer.insertString(cx, cy, yank_register[0]);
