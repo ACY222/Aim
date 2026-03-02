@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <fstream>
 #include <ios>
@@ -332,7 +333,14 @@ class Editor {
         for (int y = 0; y < term.rows - 2; ++y) {
             int file_row = y + row_off;
             if (file_row < std::ssize(rows)) {
-                ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
+                // use relative line numbers instead of absolute line numbers
+                if (file_row == cy) {
+                    ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
+                } else {
+                    ab += std::format("{:>{}} ", std::abs(file_row - cy),
+                                      LINE_NUMBER_LEN);
+                }
+
                 if (col_off < std::ssize(rows[file_row])) {
                     ab.append(rows[file_row], col_off,
                               term.cols - LINE_NUMBER_LEN - 1);
