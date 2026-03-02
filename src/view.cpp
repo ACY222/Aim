@@ -29,7 +29,7 @@ void View::drawRows(std::string &ab, const Buffer &buffer, int cy) const {
             }
 
             if (col_off < buffer.getLineLength(file_row)) {
-                ab.append(buffer.rows[file_row], col_off,
+                ab.append(buffer.getLine(file_row), col_off,
                           term.cols - (LINE_NUMBER_LEN + 1));
             }
         } else {

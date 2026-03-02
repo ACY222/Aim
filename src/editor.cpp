@@ -344,7 +344,7 @@ void Editor::executeOperatorAction(char op, int motion, int count) {
         }
         executeLineOperator(op, count + 1);
     } else {
-        executeCharsOperator(op, isToRight(motion), count);
+        executeCharsOperator(op, count, isToRight(motion));
     }
 }
 
@@ -358,7 +358,6 @@ void Editor::executeCharsOperator(int op, int count, bool toRight) {
             std::min(count, static_cast<int>(buffer.getLineLength(cy)) - cx);
         yank_register.push_back(buffer.getLine(cy).substr(cx, chars_to_affect));
         if (op == 'c' or op == 'd') {
-            buffer.deleteChars(cx, cy, chars_to_affect);
             buffer.deleteChars(cx, cy, chars_to_affect);
         }
     } else {

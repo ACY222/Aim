@@ -19,7 +19,15 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
+test: $(TEST_TARGET)
+	@echo "Running unit tests..."
+	./$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_DIR)/test_buffer.cpp $(OBJ_DIR)/buffer.o
+	@echo "Compiling tests..."
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
 clean:
 	rm -rf $(TARGET) $(OBJ_DIR)
 
-.PHONY: all clean
+.PHONY: all clean test
