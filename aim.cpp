@@ -232,6 +232,7 @@ class Editor {
 
     // --- Clipboard (register) ---
     std::vector<std::string> yank_register; // stores copied/deleted lines
+    bool yank_by_line;
 
     void resetCommandState() {
         multiplier = 0;
@@ -241,7 +242,7 @@ class Editor {
   public:
     Editor()
         : current_mode(Mode::Normal), cx(0), cy(0), row_off(0), col_off(0),
-          should_quit(false), message("Welcome to Aim!") {
+          should_quit(false), message("Welcome to Aim!"), yank_by_line(false) {
         if (rows.empty()) {
             rows.push_back("");
         }
@@ -440,7 +441,7 @@ class Editor {
             resetCommandState();
         }
 
-        if (key >= '0' and key <= '9') {
+        if (key >= '1' and key <= '9') {
             multiplier = multiplier * 10 + (key - '0');
             return;
         }
@@ -739,6 +740,7 @@ class Editor {
     // d3l
     void executeCharsOperator(int op, bool isToRight, int count) {
         yank_register.clear();
+        yank_by_line = false;
         int chars_to_affect;
         if (isToRight) {
             chars_to_affect =
@@ -769,6 +771,7 @@ class Editor {
             std::min(count, static_cast<int>(std::ssize(rows) - cy));
 
         yank_register.clear();
+        yank_by_line = true;
         for (int i = 0; i < lines_to_affect; ++i) {
             yank_register.push_back(rows[cy + i]);
         }
@@ -785,7 +788,39 @@ class Editor {
     }
 
     void pasteRegister(char op, int count) {
-        // do something
+        if (yank_register.empty() or count == 0) {
+            return;
+        }
+        if (yank_by_line) { // then paste by line
+            if (op == 'p') {
+                ++cy;
+                for (int i = 0; i < count; ++i) {
+                    rows.insert(rows.begin() + cy, yank_register.begin(),
+                                yank_register.end());
+                }
+            } else { // op == 'P'
+                for (int i = 0; i < count; ++i) {
+                    rows.insert(rows.begin() + cy, yank_register.begin(),
+                                yank_register.end());
+                }
+            }
+        } else { // paste by characters
+            if (op == 'p') {
+                for (int i = 0; i < count; ++i) {
+                    rows[cy].insert(rows[cy].begin() + cx + 1,
+                                    yank_register[0].begin(),
+                                    yank_register[0].end());
+                    cx += std::ssize(yank_register[0]);
+                }
+            } else { // op == 'P'
+                for (int i = 0; i < count; ++i) {
+                    rows[cy].insert(rows[cy].begin() + cx,
+                                    yank_register[0].begin(),
+                                    yank_register[0].end());
+                }
+                cx = cx + count * std::ssize(yank_register[0]) - 1;
+            }
+        }
         multiplier = 0;
     }
 
