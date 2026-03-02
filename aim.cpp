@@ -561,7 +561,11 @@ class Editor {
 
         case HOME_KEY:
         case '0':
-            cx = 0;
+            if (multiplier) {
+                multiplier = multiplier * 10;
+            } else {
+                cx = 0;
+            }
             break;
         case END_KEY:
         case '$':
