@@ -10,11 +10,20 @@ int main(int argc, char *argv[]) {
         }
         e.run();
     } catch (const std::system_error &e) {
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
         std::cerr << "System/Terminal Error: " << e.what() << "\r\n";
+        return 1;
     } catch (const std::exception &e) {
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
         std::cerr << "Standard Library Exception: " << e.what() << "\r\n";
+        return 1;
     } catch (...) {
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
         std::cerr << "Unknown Fatal Error occurred.\r\n";
+        return 1;
     }
 
     write(STDOUT_FILENO, "\x1b[2J", 4);

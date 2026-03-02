@@ -73,11 +73,16 @@ Terminal::Terminal() {
         die("tcsetattr");
     }
 
-    if (auto size = getWindowSize()) {
-        rows = size->rows;
-        cols = size->cols;
-    } else {
-        die("getWindowSize");
+    try {
+        if (auto size = getWindowSize()) {
+            rows = size->rows;
+            cols = size->cols;
+        } else {
+            die("getWindowSize");
+        }
+    } catch (...) {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+        throw;
     }
 }
 
