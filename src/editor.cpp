@@ -1,5 +1,6 @@
 #include "editor.hpp"
 #include <format>
+#include <iterator>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -173,7 +174,7 @@ void Editor::handleNormal(int key) {
         break;
     case END_KEY:
     case '$':
-        cx = buffer.rows[cy].empty() ? 0 : buffer.rows[cy].size() - 1;
+        cx = buffer.isEmpty(cy) ? 0 : buffer.getLineLength(cy) - 1;
         break;
 
     /*** edit in normal mode ***/
@@ -181,20 +182,19 @@ void Editor::handleNormal(int key) {
         if (cy < buffer.getLineCount() - 1) {
             auto old_len = buffer.getLineLength(cy);
 
-            if (!buffer.rows[cy].empty() and !buffer.rows[cy + 1].empty() and
-                buffer.rows[cy].back() != ' ') {
-                buffer.rows[cy].push_back(' ');
+            if (!buffer.isEmpty(cy) and !buffer.isEmpty(cy + 1)) {
+                buffer.appendChar(cy, ' ');
                 ++old_len;
             }
-            buffer.rows[cy].append(buffer.rows[cy + 1]);
-            buffer.rows.erase(buffer.rows.begin() + cy + 1);
+            buffer.appendString(cy, buffer.getLine(cy + 1));
+            buffer.deleteLines(cy + 1, 1);
 
             cx = old_len - 1;
         }
         break;
     case 'x': // delete the character at the cursor position
-        if (!buffer.rows[cy].empty()) {
-            buffer.rows[cy].erase(buffer.rows[cy].begin() + cx);
+        if (!buffer.isEmpty(cy)) {
+            buffer.deleteChar(cx, cy);
         }
         break;
     }
@@ -213,7 +213,9 @@ void Editor::handleInsert(int key) {
     // expand tab into spaces
     case '\t': { // Tab
         int num_spaces = SOFTTABSTOP - cx % SOFTTABSTOP;
-        buffer.rows[cy].insert(buffer.rows[cy].begin() + cx, num_spaces, ' ');
+        for (int i = 0; i < num_spaces; ++i) {
+            buffer.insertChar(cx, cy, ' ');
+        }
         cx += num_spaces;
         break;
     }
@@ -224,13 +226,13 @@ void Editor::handleInsert(int key) {
 
     case DEL_KEY:
         if (cx < buffer.getLineLength(cy)) {
-            ++cx;
-            buffer.deleteChar(cx, cy);
+            buffer.deleteChar(cx + 1, cy);
         }
         break;
     case BACKSPACE:
     case CTRL_KEY('h'):
         buffer.deleteChar(cx, cy);
+        --cx;
         break;
 
     case ARROW_LEFT:
@@ -243,6 +245,7 @@ void Editor::handleInsert(int key) {
     default:
         if (std::isprint(key)) {
             buffer.insertChar(cx, cy, key);
+            ++cx;
         }
     }
 }
@@ -353,16 +356,17 @@ void Editor::executeCharsOperator(int op, int count, bool toRight) {
     if (toRight) {
         chars_to_affect =
             std::min(count, static_cast<int>(buffer.getLineLength(cy)) - cx);
-        yank_register.push_back(buffer.rows[cy].substr(cx, chars_to_affect));
+        yank_register.push_back(buffer.getLine(cy).substr(cx, chars_to_affect));
         if (op == 'c' or op == 'd') {
-            buffer.rows[cy].erase(cx, chars_to_affect);
+            buffer.deleteChars(cx, cy, chars_to_affect);
+            buffer.deleteChars(cx, cy, chars_to_affect);
         }
     } else {
         chars_to_affect = std::min(count, cx);
         yank_register.push_back(
-            buffer.rows[cy].substr(cx - chars_to_affect, chars_to_affect));
+            buffer.getLine(cy).substr(cx - chars_to_affect, chars_to_affect));
         if (op == 'c' or op == 'd') {
-            buffer.rows[cy].erase(cx - chars_to_affect, chars_to_affect);
+            buffer.deleteChars(cx - chars_to_affect, cy, chars_to_affect);
         }
         cx -= chars_to_affect;
     }
@@ -381,7 +385,7 @@ void Editor::executeLineOperator(int op, int count) {
     yank_register.clear();
     yank_by_line = true;
     for (int i = 0; i < lines_to_affect; ++i) {
-        yank_register.push_back(buffer.rows[cy + i]);
+        yank_register.push_back(buffer.getLine(cy));
     }
 
     if (op == 'c') {
@@ -397,28 +401,26 @@ void Editor::pasteRegister(char op, int count) {
         return;
     }
     if (yank_by_line) { // then paste by line
+        int insert_cy = (op == 'p') ? cy + 1 : cy;
+        for (int i = 0; i < count; ++i) {
+            buffer.insertLines(insert_cy, yank_register);
+            insert_cy += std::ssize(yank_register);
+        }
+
         if (op == 'p') {
             ++cy;
-            for (int i = 0; i < count; ++i) {
-                ++cy;
-                buffer.insertLines(cy, yank_register);
-            }
-        } else { // op == 'P'
-            for (int i = 0; i < count; ++i) {
-                buffer.insertLines(cy, yank_register);
-            }
         }
     } else { // paste by characters
+        std::string to_paste = "";
+        for (int i = 0; i < count; ++i) {
+            to_paste += yank_register[0];
+        }
         if (op == 'p') {
-            for (int i = 0; i < count; ++i) {
-                ++cx;
-                buffer.insertString(cx, cy, yank_register[0]);
-            }
+            buffer.insertString(cx + 1, cy, yank_register[0]);
+            cx = cx + std::size(yank_register[0]);
         } else { // op == 'P'
-            for (int i = 0; i < count; ++i) {
-                buffer.insertString(cx, cy, yank_register[0]);
-                --cx;
-            }
+            buffer.insertString(cx, cy, yank_register[0]);
+            cx = cx + std::size(yank_register[0]) - 1;
         }
     }
     multiplier = 0;

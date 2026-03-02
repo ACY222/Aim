@@ -34,7 +34,8 @@ void View::drawRows(std::string &ab, const Buffer &buffer, int cy) const {
             }
         } else {
             // if we open an empty file
-            if (buffer.filename.empty() and y == term.rows / 3) {
+            if (buffer.filename.empty() and buffer.getLineCount() == 1 and
+                buffer.isEmpty(0) and y == term.rows / 3) {
                 std::string welcome = "Welcome to AIM editor!";
                 int padding_len = (term.cols - welcome.size()) / 2;
                 if (padding_len) {

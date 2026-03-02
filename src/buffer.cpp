@@ -55,61 +55,75 @@ void Buffer::saveFile(std::string &message) {
 }
 
 /*** text editing ***/
-void Buffer::insertChar(int &cx, const int cy, const char c) {
+void Buffer::insertChar(const int cx, const int cy, const char c) {
     if (cy == getLineCount()) {
         rows.emplace_back("");
     }
     rows[cy].insert(rows[cy].begin() + cx, c);
-    ++cx;
 }
 
-void Buffer::deleteChar(int &cx, int &cy) {
+void Buffer::appendChar(const int cy, const char c) {
+    if (cy == getLineCount()) {
+        rows.emplace_back("");
+    }
+    rows[cy].push_back(c);
+}
+
+void Buffer::deleteChar(const int cx, const int cy) {
     if (cx == 0 and cy == 0) {
         return;
     }
 
     if (cx > 0) {
         rows[cy].erase(rows[cy].begin() + cx - 1);
-        --cx;
-    } else {
-        cx = rows[cy - 1].size();
-        rows[cy - 1].append(rows[cy]);
-        rows.erase(rows.begin() + cy);
-        --cy;
     }
 }
 
-void Buffer::insertString(int &cx, int cy, const std::string &str) {
+void Buffer::deleteChars(const int cx, const int cy, const int count) {
+    if (cy >= getLineCount()) {
+        return;
+    }
+
+    int chars_to_del = std::min(count, getLineLength(cy) - cx);
+    if (chars_to_del > 0) {
+        rows[cy].erase(cx, chars_to_del);
+    }
+}
+
+void Buffer::insertString(const int cx, const int cy, const std::string &str) {
     if (cy == getLineCount()) {
         rows.emplace_back("");
     }
 
     rows[cy].insert(rows[cy].begin() + cx, str.begin(), str.end());
-    cx += str.size();
 }
 
-void Buffer::insertNewLine(int &cx, int &cy) {
+void Buffer::appendString(const int cy, const std::string &str) {
+    if (cy == getLineCount()) {
+        rows.emplace_back("");
+    }
+
+    rows[cy].append(str);
+}
+
+void Buffer::insertNewLine(const int cx, const int cy) {
     if (cy == getLineCount()) { // just in case cy is out of range
         rows.emplace_back("");
     } else if (cx == 0) {
         rows.insert(rows.begin() + cy, "");
-        ++cy;
     } else {
         std::string new_row = rows[cy].substr(cx);
         rows[cy].erase(cx);
         rows.insert(rows.begin() + cy + 1, std::move(new_row));
-        ++cy;
     }
-
-    cx = 0;
 }
 
-void Buffer::insertLines(int cy, const std::vector<std::string> &lines) {
+void Buffer::insertLines(const int cy, const std::vector<std::string> &lines) {
     rows.insert(rows.begin() + cy, lines.begin(), lines.end());
 }
 
 /*** row operations ***/
-void Buffer::deleteLines(int &cy, const int count) {
+void Buffer::deleteLines(const int cy, const int count) {
     if (cy >= getLineCount()) {
         return;
     }
