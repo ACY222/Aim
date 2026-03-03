@@ -135,9 +135,13 @@ void View::refreshScreen(const Buffer &buffer, Mode mode, int cx, int cy,
     drawStatusBar(ab, buffer, mode, cx, cy);
     drawMessageBar(ab, mode, message, command_buffer);
 
-    // move the cursor to (row, col)
-    ab += std::format("\x1b[{};{}H", cy - row_off + 1,
-                      cx - col_off + 1 + (LINE_NUMBER_LEN + 1));
+    if (mode == Mode::CommandLine) {
+        ab += std::format("\x1b[{};{}H", term.rows,
+                          std::ssize(command_buffer) + 2);
+    } else { // move the cursor to (row, col)
+        ab += std::format("\x1b[{};{}H", cy - row_off + 1,
+                          cx - col_off + 1 + (LINE_NUMBER_LEN + 1));
+    }
     // make the cursor visible
     ab += "\x1b[?25h";
     // write to STDOUT_FILENO

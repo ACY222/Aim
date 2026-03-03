@@ -70,8 +70,8 @@ void Buffer::appendChar(const int cy, const char c) {
 }
 
 void Buffer::deleteChar(const int cx, const int cy) {
-    if (cx == 0 and cy == 0) {
-        return;
+    if (cy < 0 or cy > getLineCount() or cx < 0 or cx >= getLineLength(cy)) {
+        return; // cx or cy is out of range
     }
 
     if (cx < getLineLength(cy) and cx >= 0) {

@@ -95,8 +95,8 @@ void Editor::handleNormal(int key) {
     case 'o':
         ++cy;
     case 'O':
-        buffer.insertNewLine(cx, cy);
         cx = 0;
+        buffer.insertNewLine(cx, cy);
         mode = Mode::Insert;
         break;
 
@@ -223,6 +223,7 @@ void Editor::handleInsert(int key) {
     case '\r': // Enter
         buffer.insertNewLine(cx, cy);
         ++cy;
+        cx = 0;
         break;
 
     case DEL_KEY:
@@ -400,6 +401,7 @@ void Editor::executeLineOperator(int op, int count) {
 
     if (op == 'c') {
         buffer.clearLines(cy, count);
+        mode = Mode::Insert;
     } else if (op == 'd') {
         buffer.deleteLines(cy, count);
     }
