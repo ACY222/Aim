@@ -154,9 +154,9 @@ void Editor::handleNormal(int key) {
     case 'e':
         moveWordEndForward();
         break;
-        // case 'b':
-        //     moveWordBackward();
-        //     break;
+    case 'b':
+        moveWordBackward();
+        break;
 
     case 'G':
         moveCursor(key);
@@ -595,7 +595,38 @@ void Editor::moveWordEndForward() {
         ++cx;
     }
 }
-// void Editor::moveWordBackward();
+
+void Editor::moveWordBackward() {
+    std::string line = buffer.getLine(cy);
+
+    // move one character backward
+    if (cx <= 0) {
+        if (cy > 0) {
+            --cy;
+            line = buffer.getLine(cy);
+            cx = buffer.getLineLength(cy) - 1;
+        } else {
+            return;
+        }
+    } else {
+        --cx;
+    }
+
+    // skip spaces
+    while (cx >= 0 and getCharType(line[cx]) == CharType::Space) {
+        --cx;
+        if (cx <= 0 and cy > 0) {
+            --cy;
+            line = buffer.getLine(cy);
+            cx = buffer.getLineLength(cy) - 1;
+        }
+    }
+
+    CharType type = getCharType(line[cx]);
+    while (cx > 0 and getCharType(line[cx - 1]) == type) {
+        --cx;
+    }
+}
 
 CharType Editor::getCharType(char c) const {
     if (std::isspace(c)) {
