@@ -100,7 +100,8 @@ void View::drawStatusBar(std::string &ab, const Buffer &buffer, Mode mode,
 
 void View::drawMessageBar(std::string &ab, Mode mode,
                           const std::string &message,
-                          const std::string &command_buffer) const {
+                          const std::string &command_buffer, int multiplier,
+                          char pending_operator) const {
     ab += "\x1b[K";
 
     if (mode == Mode::CommandLine) {
@@ -109,6 +110,9 @@ void View::drawMessageBar(std::string &ab, Mode mode,
         ab += command_buffer;
     } else if (!message.empty()) {
         ab += message;
+    } else if (mode == Mode::Normal) {
+        ab += std::format("pending_operator: {}, multiplier: {}",
+                          pending_operator, multiplier);
     }
 }
 
@@ -128,7 +132,8 @@ void View::scroll(int cx, int cy) {
 
 void View::refreshScreen(const Buffer &buffer, Mode mode, int cx, int cy,
                          const std::string &message,
-                         const std::string &command_buffer) {
+                         const std::string &command_buffer, int multiplier,
+                         char pending_operator) {
     scroll(cx, cy);
     std::string ab; // append buffer
 
@@ -140,7 +145,8 @@ void View::refreshScreen(const Buffer &buffer, Mode mode, int cx, int cy,
 
     drawRows(ab, buffer, cy);
     drawStatusBar(ab, buffer, mode, cx, cy);
-    drawMessageBar(ab, mode, message, command_buffer);
+    drawMessageBar(ab, mode, message, command_buffer, multiplier,
+                   pending_operator);
 
     if (mode == Mode::CommandLine) {
         ab += std::format("\x1b[{};{}H", term.rows,

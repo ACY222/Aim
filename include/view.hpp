@@ -12,7 +12,8 @@ class View {
     void drawStatusBar(std::string &ab, const Buffer &buffer, Mode mode, int cx,
                        int cy) const;
     void drawMessageBar(std::string &ab, Mode mode, const std::string &message,
-                        const std::string &command_buffer) const;
+                        const std::string &command_buffer, int multiplier,
+                        char pending_operator) const;
 
   public:
     View(Terminal &t) : term(t) {}
@@ -20,5 +21,6 @@ class View {
     void scroll(int cx, int cy);
     void refreshScreen(const Buffer &buffer, Mode mode, int cx, int cy,
                        const std::string &message,
-                       const std::string &command_buffer);
+                       const std::string &command_buffer, int multiplier,
+                       char pending_operator);
 };

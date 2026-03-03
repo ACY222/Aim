@@ -15,7 +15,8 @@ void Editor::resetCommandState() {
 void Editor::run() {
     resetCommandState();
     while (!should_quit) {
-        view.refreshScreen(buffer, mode, cx, cy, message, command_buffer);
+        view.refreshScreen(buffer, mode, cx, cy, message, command_buffer,
+                           multiplier, pending_operator);
         int key = term.readKey();
         processKeyPress(key);
     }
