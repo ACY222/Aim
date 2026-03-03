@@ -151,6 +151,12 @@ void Editor::handleNormal(int key) {
     case 'w':
         moveWordForward();
         break;
+    case 'e':
+        moveWordEndForward();
+        break;
+        // case 'b':
+        //     moveWordBackward();
+        //     break;
 
     case 'G':
         moveCursor(key);
@@ -549,7 +555,46 @@ void Editor::moveWordForward() {
     }
 }
 
-// void Editor::moveWordEndForward();
+void Editor::moveWordEndForward() {
+    std::string line = buffer.getLine(cy);
+    int len = buffer.getLineLength(cy);
+
+    // move one character forward
+    if (cx >= len - 1) {
+        if (cy < buffer.getLineCount() - 1) {
+            ++cy;
+            cx = 0;
+            line = buffer.getLine(cy);
+            len = buffer.getLineLength(cy);
+        } else {
+            return;
+        }
+    } else {
+        ++cx;
+    }
+
+    // skip spaces
+    while (cx < len and getCharType(line[cx]) == CharType::Space) {
+        ++cx;
+        if (cx >= len and cy < buffer.getLineCount() - 1) {
+            ++cy;
+            cx = 0;
+            line = buffer.getLine(cy);
+            len = buffer.getLineLength(cy);
+        }
+    }
+
+    if (cx >= len) {
+        cx = (len > 0) ? len - 1 : 0;
+        return;
+    }
+
+    // stops at the last character of the current block
+    CharType type = getCharType(line[cx]);
+    while (cx < len - 1 and getCharType(line[cx + 1]) == type) {
+        ++cx;
+    }
+}
 // void Editor::moveWordBackward();
 
 CharType Editor::getCharType(char c) const {
