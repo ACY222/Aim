@@ -167,8 +167,16 @@ void Editor::handleNormal(int key) {
         moveWORDBackward();
         break;
 
+    case 'g':
+        handleOperator(key, count);
+        break;
     case 'G':
-        moveCursor(key);
+        if (count != 1) {
+            cy = count - 1;
+            multiplier = 0;
+        } else {
+            cy = buffer.getLineCount() - 1;
+        }
         break;
 
     case PAGE_UP:
@@ -338,8 +346,13 @@ void Editor::handleOperator(int op, int count) {
         pending_operator = op;
         return;
     } else if (pending_operator == op) {
-        // like dd, yy, cc
-        executeLineOperator(op, count);
+        if (op == 'g') {
+            cy = count - 1;
+            multiplier = 0;
+        } else {
+            // like dd, yy, cc
+            executeLineOperator(op, count);
+        }
     } // else pending_operator != op_key
     pending_operator = '\0';
 }
@@ -419,7 +432,7 @@ void Editor::executeLineOperator(int op, int count) {
     yank_register.clear();
     yank_by_line = true;
     for (int i = 0; i < lines_to_affect; ++i) {
-        yank_register.push_back(buffer.getLine(cy));
+        yank_register.push_back(buffer.getLine(cy + i));
     }
 
     if (op == 'c') {
@@ -526,8 +539,6 @@ void Editor::moveCursor(int key) {
         }
         break;
     }
-    case 'G':
-        cy = buffer.getLineCount() - 1;
     }
     clampCursor(); // make sure that cx, cy won't be out of range
 }
