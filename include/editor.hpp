@@ -15,11 +15,11 @@ class Editor {
 
     int cx{0}, cy{0};
     Mode mode{Mode::Normal};
-    bool should_quit;
+    bool should_quit{false};
 
     // --- Vim State Machine ---
-    int multiplier;                         // stores the [count]
-    char pending_operator;                  // stores 'd', 'y', 'c', etc.
+    int multiplier{0};                      // stores the [count]
+    char pending_operator{'\0'};            // stores 'd', 'y', 'c', etc.
     std::vector<std::string> yank_register; // stores copied/deleted lines
     bool yank_by_line{false};
 
