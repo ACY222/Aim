@@ -40,9 +40,15 @@ class Editor {
     void moveCursor(int key);
     void clampCursor();
 
+    void moveWordForward();
+    void moveWordEndForward();
+    void moveWordBackward();
+
     // --- auxiliary methods ---
+    CharType getCharType(char c) const;
     inline bool isLineMotion(int motion);
     inline bool isToRight(int motion);
+
     // --- commands in Normal mode ---
     // [count] [motion] * 2
     void handleOperator(int op, int count); // 2dd

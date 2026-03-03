@@ -11,6 +11,12 @@ constexpr int FILENAME_LEN = 16;
 // how many spaces a Tab keystroke counts for
 constexpr int SOFTTABSTOP = 4;
 
+enum class CharType {
+    Space,
+    Word,
+    Punctuation,
+};
+
 enum class Mode {
     Normal,
     Insert,

@@ -1,4 +1,6 @@
 #include "editor.hpp"
+#include "config.hpp"
+#include <cctype>
 #include <format>
 #include <iterator>
 #include <string>
@@ -145,6 +147,11 @@ void Editor::handleNormal(int key) {
         }
         multiplier = 0;
         break;
+
+    case 'w':
+        moveWordForward();
+        break;
+
     case 'G':
         moveCursor(key);
         break;
@@ -508,4 +515,49 @@ void Editor::moveCursor(int key) {
         cy = buffer.getLineCount() - 1;
     }
     clampCursor(); // make sure that cx, cy won't be out of range
+}
+
+void Editor::moveWordForward() {
+    std::string line = buffer.getLine(cy);
+    int len = buffer.getLineLength(cy);
+
+    CharType type = getCharType(line[cx]);
+
+    // 1. skip current word block
+    while (cx < len and getCharType(line[cx]) == type and
+           type != CharType::Space) {
+        ++cx;
+    }
+
+    // 2. skip trailing space
+    while (cx < len and getCharType(line[cx]) == CharType::Space) {
+        ++cx;
+    }
+
+    // 3. wrap to next line if we hit the end
+    if (cx >= len and cy < buffer.getLineCount() - 1) {
+        ++cy;
+        cx = 0;
+        line = buffer.getLine(cy);
+        len = buffer.getLineLength(cy);
+        // skip the leading space
+        while (cx < len and getCharType(line[cx]) == CharType::Space) {
+            ++cx;
+        }
+    } else if (cx >= len and len > 0) {
+        cx = len - 1;
+    }
+}
+
+// void Editor::moveWordEndForward();
+// void Editor::moveWordBackward();
+
+CharType Editor::getCharType(char c) const {
+    if (std::isspace(c)) {
+        return CharType::Space;
+    } else if (std::isalnum(c) or c == '_') {
+        return CharType::Word;
+    } else {
+        return CharType::Punctuation;
+    }
 }
