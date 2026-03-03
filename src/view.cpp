@@ -22,7 +22,8 @@ void View::drawRows(std::string &ab, const Buffer &buffer, int cy) const {
         int file_row = y + row_off;
         if (file_row < buffer.getLineCount()) {
             if (file_row == cy) {
-                ab += std::format("{:>{}} ", file_row + 1, LINE_NUMBER_LEN);
+                ab +=
+                    std::format("{:>{}}  ", file_row + 1, LINE_NUMBER_LEN - 1);
             } else {
                 ab += std::format("{:>{}} ", std::abs(file_row - cy),
                                   LINE_NUMBER_LEN);

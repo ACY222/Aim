@@ -3,7 +3,7 @@
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 // the width of line numbers
-constexpr int LINE_NUMBER_LEN = 4;
+constexpr int LINE_NUMBER_LEN = 5;
 // the width opf Mode and filename in status bar
 constexpr int MODE_LEN = 8;
 constexpr int FILENAME_LEN = 16;
