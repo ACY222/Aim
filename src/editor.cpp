@@ -65,7 +65,13 @@ void Editor::handleNormal(int key) {
         break;
 
     case 'S':
-        buffer.saveFile(message);
+        if (buffer.filename.empty()) {
+            mode = Mode::CommandLine;
+            command_buffer = "w ";
+            message.clear();
+        } else {
+            buffer.saveFile(message);
+        }
         break;
 
     /*** editing ***/
@@ -530,7 +536,13 @@ void Editor::pasteRegister(char op, int count) {
 void Editor::executeCommand() {
     if (command_buffer == "q") {
         should_quit = true;
-    } else if (command_buffer == "w") {
+    } else if (command_buffer.starts_with('w')) {
+        if (command_buffer.size() >= 3) {
+            std::string new_filename = command_buffer.substr(2);
+            if (!new_filename.empty()) {
+                buffer.filename = new_filename;
+            }
+        }
         buffer.saveFile(message);
     } else if (command_buffer == "wq") {
         buffer.saveFile(message);
