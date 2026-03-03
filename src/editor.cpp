@@ -101,7 +101,7 @@ void Editor::handleNormal(int key) {
         break;
 
     case 's':
-        if (buffer.isEmpty(cy)) {
+        if (!buffer.isEmpty(cy)) {
             buffer.deleteChar(cx, cy);
         }
         mode = Mode::Insert;
