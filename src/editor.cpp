@@ -151,11 +151,20 @@ void Editor::handleNormal(int key) {
     case 'w':
         moveWordForward();
         break;
+    case 'W':
+        moveWORDForward();
+        break;
     case 'e':
         moveWordEndForward();
         break;
+    case 'E':
+        moveWORDEndForward();
+        break;
     case 'b':
         moveWordBackward();
+        break;
+    case 'B':
+        moveWORDBackward();
         break;
 
     case 'G':
@@ -523,6 +532,16 @@ void Editor::moveCursor(int key) {
     clampCursor(); // make sure that cx, cy won't be out of range
 }
 
+CharType Editor::getCharType(char c) const {
+    if (std::isspace(c)) {
+        return CharType::Space;
+    } else if (std::isalnum(c) or c == '_') {
+        return CharType::Word;
+    } else {
+        return CharType::Punctuation;
+    }
+}
+
 void Editor::moveWordForward() {
     std::string line = buffer.getLine(cy);
     int len = buffer.getLineLength(cy);
@@ -628,12 +647,104 @@ void Editor::moveWordBackward() {
     }
 }
 
-CharType Editor::getCharType(char c) const {
-    if (std::isspace(c)) {
-        return CharType::Space;
-    } else if (std::isalnum(c) or c == '_') {
-        return CharType::Word;
+void Editor::moveWORDForward() {
+    std::string line = buffer.getLine(cy);
+    int len = buffer.getLineLength(cy);
+
+    CharType type = getCharType(line[cx]);
+
+    // 1. skip current word block
+    while (cx < len and getCharType(line[cx]) != CharType::Space and
+           type != CharType::Space) {
+        ++cx;
+    }
+
+    // 2. skip trailing space
+    while (cx < len and getCharType(line[cx]) == CharType::Space) {
+        ++cx;
+    }
+
+    // 3. wrap to next line if we hit the end
+    if (cx >= len and cy < buffer.getLineCount() - 1) {
+        ++cy;
+        cx = 0;
+        line = buffer.getLine(cy);
+        len = buffer.getLineLength(cy);
+        // skip the leading space
+        while (cx < len and getCharType(line[cx]) == CharType::Space) {
+            ++cx;
+        }
+    } else if (cx >= len and len > 0) {
+        cx = len - 1;
+    }
+}
+void Editor::moveWORDEndForward() {
+    std::string line = buffer.getLine(cy);
+    int len = buffer.getLineLength(cy);
+
+    // move one character forward
+    if (cx >= len - 1) {
+        if (cy < buffer.getLineCount() - 1) {
+            ++cy;
+            cx = 0;
+            line = buffer.getLine(cy);
+            len = buffer.getLineLength(cy);
+        } else {
+            return;
+        }
     } else {
-        return CharType::Punctuation;
+        ++cx;
+    }
+
+    // skip spaces
+    while (cx < len and getCharType(line[cx]) == CharType::Space) {
+        ++cx;
+        if (cx >= len and cy < buffer.getLineCount() - 1) {
+            ++cy;
+            cx = 0;
+            line = buffer.getLine(cy);
+            len = buffer.getLineLength(cy);
+        }
+    }
+
+    if (cx >= len) {
+        cx = (len > 0) ? len - 1 : 0;
+        return;
+    }
+
+    // stops at the last character of the current block
+    while (cx < len - 1 and getCharType(line[cx + 1]) != CharType::Space) {
+        ++cx;
+    }
+}
+
+void Editor::moveWORDBackward() {
+    std::string line = buffer.getLine(cy);
+
+    // move one character backward
+    if (cx <= 0) {
+        if (cy > 0) {
+            --cy;
+            line = buffer.getLine(cy);
+            cx = buffer.getLineLength(cy) - 1;
+        } else {
+            return;
+        }
+    } else {
+        --cx;
+    }
+
+    // skip spaces
+    while (cx >= 0 and getCharType(line[cx]) == CharType::Space) {
+        --cx;
+        if (cx <= 0 and cy > 0) {
+            --cy;
+            line = buffer.getLine(cy);
+            cx = buffer.getLineLength(cy) - 1;
+        }
+    }
+
+    while (cx > 0 and getCharType(line[cx - 1]) != CharType::Space) {
+        --cx;
     }
 }

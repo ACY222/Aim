@@ -44,6 +44,10 @@ class Editor {
     void moveWordEndForward();
     void moveWordBackward();
 
+    void moveWORDForward();
+    void moveWORDEndForward();
+    void moveWORDBackward();
+
     // --- auxiliary methods ---
     CharType getCharType(char c) const;
     inline bool isLineMotion(int motion);
