@@ -38,6 +38,8 @@ void Editor::processKeyPress(int key) {
     case Mode::CommandLine:
         handleCommandLine(key);
         break;
+    case Mode::Search:
+        handleSearch(key);
     }
 }
 
@@ -57,7 +59,7 @@ void Editor::handleNormal(int key) {
     int count = multiplier == 0 ? 1 : multiplier;
 
     switch (key) {
-    /*** file I/O ***/
+    /*** quit or save ***/
     case 'Q':
         should_quit = true;
         break;
@@ -66,6 +68,7 @@ void Editor::handleNormal(int key) {
         buffer.saveFile(message);
         break;
 
+    /*** editing ***/
     case 'c':
     case 'd':
     case 'y':
@@ -109,11 +112,6 @@ void Editor::handleNormal(int key) {
         }
         mode = Mode::Insert;
         break;
-
-    // case 'S':    // currently, we use `S` to save
-    //     rows[cy].erase(cx);
-    //     current_mode = Mode::Insert;
-    //     break;
 
     // Visual mode
     case 'v':
@@ -206,6 +204,35 @@ void Editor::handleNormal(int key) {
     case END_KEY:
     case '$':
         cx = buffer.isEmpty(cy) ? 0 : buffer.getLineLength(cy) - 1;
+        break;
+
+    /*** search ***/
+    case 'f':
+    case 't':
+    case 'F':
+    case 'T': {
+        int target_char = term.readKey();
+        if (target_char != '\x1b') {
+            executeLineSearch(key, target_char, count);
+        }
+        multiplier = 0;
+        break;
+    }
+
+    case '?':
+    case '/': {
+        mode = Mode::Search;
+        command_buffer.clear();
+        command_buffer.push_back(key);
+        message.clear();
+        break;
+    }
+
+    case 'n':
+        executeFileSearch(1);
+        break;
+    case 'N':
+        executeFileSearch(-1);
         break;
 
     /*** edit in normal mode ***/
@@ -336,6 +363,28 @@ void Editor::handleCommandLine(int key) {
         }
     } else if (std::isprint(key)) {
         command_buffer.push_back(static_cast<char>(key));
+    }
+}
+
+void Editor::handleSearch(int key) {
+    if (key == '\x1b') {
+        mode = Mode::Normal;
+        command_buffer.clear();
+    } else if (key == '\r') {
+        int dir = (command_buffer[0] == '/') ? 1 : -1;
+        last_search_query = command_buffer.substr(1);
+        command_buffer.clear();
+        mode = Mode::Normal;
+        executeFileSearch(dir);
+    } else if (key == BACKSPACE or key == CTRL_KEY('h')) {
+        if (command_buffer.size() <= 1) {
+            mode = Mode::Normal;
+            command_buffer.clear();
+        } else {
+            command_buffer.pop_back();
+        }
+    } else if (std::isprint(key)) {
+        command_buffer.push_back(key);
     }
 }
 
@@ -757,5 +806,89 @@ void Editor::moveWORDBackward() {
 
     while (cx > 0 and getCharType(line[cx - 1]) != CharType::Space) {
         --cx;
+    }
+}
+
+void Editor::executeFileSearch(int dir) {
+    if (last_search_query.empty()) {
+        return;
+    }
+
+    int current_cy = cy;
+    int current_cx = cx + dir;
+    while (true) {
+        if (current_cy >= 0 and current_cy < buffer.getLineCount()) {
+            std::string line = buffer.getLine(current_cy);
+            int match_idx = -1;
+
+            if (dir == 1) { // search forawrd
+                size_t search_start = (current_cy == cy) ? current_cx : 0;
+                size_t pos = line.find(last_search_query, search_start);
+                if (pos != std::string::npos) {
+                    match_idx = pos;
+                }
+            } else { // search backward
+                size_t search_start =
+                    (current_cy == cy) ? current_cx : std::string::npos;
+                size_t pos = line.rfind(last_search_query, search_start);
+                if (pos != std::string::npos) {
+                    match_idx = pos;
+                }
+            }
+
+            if (match_idx != -1) {
+                cx = match_idx;
+                cy = current_cy;
+                return;
+            }
+        }
+
+        current_cy += dir;
+        if (current_cy >= buffer.getLineCount()) {
+            current_cy = 0;
+        } else if (current_cy < 0) {
+            current_cy = buffer.getLineCount() - 1;
+        }
+
+        if (current_cy == cy) {
+            message = std::format("Pattern not found: {}", last_search_query);
+            break;
+        }
+    }
+}
+
+void Editor::executeLineSearch(int command, int target_char, int count) {
+    std::string line = buffer.getLine(cy);
+    if (line.empty()) {
+        return;
+    }
+
+    int step = (command == 'f' or command == 't') ? 1 : -1;
+    int current_cx = cx;
+
+    for (int i = 0; i < count; ++i) {
+        int next_cx = current_cx + step;
+        bool found = false;
+
+        while (next_cx >= 0 and next_cx < buffer.getLineLength(cy)) {
+            if (line[next_cx] == target_char) {
+                found = true;
+                current_cx = next_cx;
+                break;
+            }
+            next_cx += step;
+        }
+
+        if (!found) {
+            return;
+        }
+    }
+
+    if (command == 't') {
+        cx = current_cx - 1;
+    } else if (command == 'T') {
+        cx = current_cx + 1;
+    } else {
+        cx = current_cx;
     }
 }

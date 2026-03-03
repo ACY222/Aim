@@ -23,6 +23,7 @@ enum class Mode {
     Visual,
     VisualLine,
     CommandLine,
+    Search,
 };
 
 enum EditorKey {

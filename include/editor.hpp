@@ -26,6 +26,8 @@ class Editor {
     std::string command_buffer;
     std::string message;
 
+    std::string last_search_query;
+
     void resetCommandState();
 
     // --- process keypress ---
@@ -35,6 +37,7 @@ class Editor {
     void handleVisual(int key);
     void handleVisualLine(int key);
     void handleCommandLine(int key);
+    void handleSearch(int key);
 
     // --- cursor movement
     void moveCursor(int key);
@@ -67,6 +70,10 @@ class Editor {
 
     // --- commands in CommandLine mode ---
     void executeCommand();
+
+    // --- search ---
+    void executeFileSearch(int dir); // 1: forward, -1: backward
+    void executeLineSearch(int command, int target_char, int count);
 
   public:
     Editor() : view(term) {}

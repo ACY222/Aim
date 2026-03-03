@@ -8,6 +8,7 @@ void View::setCursorStyle(std::string &ab, Mode mode) const {
     case Mode::Normal:
     case Mode::Visual:
     case Mode::VisualLine:
+    case Mode::Search:
         ab += "\x1b[2 q";
         break;
     case Mode::Insert:
@@ -76,6 +77,9 @@ void View::drawStatusBar(std::string &ab, const Buffer &buffer, Mode mode,
     case Mode::CommandLine:
         mode_str = "Command";
         break;
+    case Mode::Search:
+        mode_str = "Search";
+        break;
     }
 
     std::string display_name =
@@ -101,6 +105,8 @@ void View::drawMessageBar(std::string &ab, Mode mode,
 
     if (mode == Mode::CommandLine) {
         ab += std::format(":{}", command_buffer);
+    } else if (mode == Mode::Search) {
+        ab += command_buffer;
     } else if (!message.empty()) {
         ab += message;
     }
@@ -139,6 +145,9 @@ void View::refreshScreen(const Buffer &buffer, Mode mode, int cx, int cy,
     if (mode == Mode::CommandLine) {
         ab += std::format("\x1b[{};{}H", term.rows,
                           std::ssize(command_buffer) + 2);
+    } else if (mode == Mode::Search) {
+        ab += std::format("\x1b[{};{}H", term.rows,
+                          std::ssize(command_buffer) + 1);
     } else { // move the cursor to (row, col)
         ab += std::format("\x1b[{};{}H", cy - row_off + 1,
                           cx - col_off + 1 + (LINE_NUMBER_LEN + 1));
