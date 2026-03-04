@@ -154,22 +154,52 @@ void Editor::handleNormal(int key) {
         break;
 
     case 'w':
-        moveWordForward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWordForward();
+            }
+            multiplier = 0;
+        }
         break;
     case 'W':
-        moveWORDForward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWORDForward();
+            }
+            multiplier = 0;
+        }
         break;
     case 'e':
-        moveWordEndForward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWordEndForward();
+            }
+            multiplier = 0;
+        }
         break;
     case 'E':
-        moveWORDEndForward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWORDEndForward();
+            }
+            multiplier = 0;
+        }
         break;
     case 'b':
-        moveWordBackward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWordBackward();
+            }
+            multiplier = 0;
+        }
         break;
     case 'B':
-        moveWORDBackward();
+        if (pending_operator == '\0') {
+            for (int i = 0; i < count; ++i) {
+                moveWORDBackward();
+            }
+            multiplier = 0;
+        }
         break;
 
     case 'g':
