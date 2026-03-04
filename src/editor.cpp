@@ -106,12 +106,18 @@ void Editor::handleNormal(int key) {
         break;
 
     case 'o':
-        ++cy;
-    case 'O':
-        cx = 0;
-        buffer.insertNewLine(cx, cy);
+    case 'O': {
+        std::string line{buffer.getLine(cy)};
+        int leading_spaces_len = line.find_first_not_of(' ');
+        if (key == 'o') {
+            ++cy;
+        }
+        buffer.insertNewLine(0, cy);
+        buffer.appendString(cy, std::string(leading_spaces_len, ' '));
+        cx = leading_spaces_len;
         mode = Mode::Insert;
         break;
+    }
 
     case 's':
         if (!buffer.isEmpty(cy)) {
@@ -315,11 +321,15 @@ void Editor::handleInsert(int key) {
         break;
     }
 
-    case '\r': // Enter
+    case '\r': { // Enter
+        std::string line = buffer.getLine(cy);
+        int leading_spaces_len = line.find_first_not_of(' ');
         buffer.insertNewLine(cx, cy);
         ++cy;
-        cx = 0;
+        buffer.appendString(cy, std::string(leading_spaces_len, ' '));
+        cx = leading_spaces_len;
         break;
+    }
 
     case DEL_KEY:
         if (cx < buffer.getLineLength(cy)) {
