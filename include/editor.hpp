@@ -43,6 +43,8 @@ class Editor {
     void moveCursor(int key);
     void clampCursor();
 
+    void moveByWord(int motion);
+
     void moveWordForward();
     void moveWordEndForward();
     void moveWordBackward();
@@ -53,7 +55,8 @@ class Editor {
 
     // --- auxiliary methods ---
     CharType getCharType(char c) const;
-    inline bool isLineMotion(int motion);
+    inline bool moveVertically(int motion);
+    inline bool moveHorizontally(int motion);
     inline bool isToRight(int motion);
 
     // --- commands in Normal mode ---
@@ -62,7 +65,7 @@ class Editor {
     // [motion] * 2
     void executeLineOperator(int op, int count); // dd
     // [operator] [count] [motion]
-    void executeOperatorAction(char op, int count, int motion); // d2j
+    void executeOperatorAction(char op, int motion, int count); // d2j
     // [operator] [count] [h/l]
     void executeCharsOperator(int op, int count, bool toRight); // d2l
     // [count] p/P

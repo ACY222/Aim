@@ -160,49 +160,17 @@ void Editor::handleNormal(int key) {
         break;
 
     case 'w':
-        if (pending_operator == '\0') {
-            for (int i = 0; i < count; ++i) {
-                moveWordForward();
-            }
-            multiplier = 0;
-        }
-        break;
     case 'W':
-        if (pending_operator == '\0') {
-            for (int i = 0; i < count; ++i) {
-                moveWORDForward();
-            }
-            multiplier = 0;
-        }
-        break;
     case 'e':
-        if (pending_operator == '\0') {
-            for (int i = 0; i < count; ++i) {
-                moveWordEndForward();
-            }
-            multiplier = 0;
-        }
-        break;
     case 'E':
-        if (pending_operator == '\0') {
-            for (int i = 0; i < count; ++i) {
-                moveWORDEndForward();
-            }
-            multiplier = 0;
-        }
-        break;
     case 'b':
-        if (pending_operator == '\0') {
-            for (int i = 0; i < count; ++i) {
-                moveWordBackward();
-            }
-            multiplier = 0;
-        }
-        break;
     case 'B':
-        if (pending_operator == '\0') {
+        if (pending_operator) {
+            executeOperatorAction(pending_operator, key, count);
+            pending_operator = '\0';
+        } else {
             for (int i = 0; i < count; ++i) {
-                moveWORDBackward();
+                moveByWord(key);
             }
             multiplier = 0;
         }
@@ -453,9 +421,14 @@ void Editor::handleOperator(int op, int count) {
     pending_operator = '\0';
 }
 
-inline bool Editor::isLineMotion(int motion) {
+inline bool Editor::moveVertically(int motion) {
     return motion == 'j' or motion == ARROW_DOWN or motion == 'k' or
            motion == ARROW_UP;
+}
+
+inline bool Editor::moveHorizontally(int motion) {
+    return motion == 'h' or motion == ARROW_LEFT or motion == 'l' or
+           motion == ARROW_RIGHT;
 }
 
 inline bool Editor::isToRight(int motion) {
@@ -481,14 +454,57 @@ void Editor::executeOperatorAction(char op, int motion, int count) {
         break;
     }
 
-    if (isLineMotion(motion)) {
+    if (moveVertically(motion)) {
         // d2k == kkd2j
         if (coefficient == -1) {
             cy = std::max(cy - count, 0);
         }
         executeLineOperator(op, count + 1);
-    } else {
+    } else if (moveHorizontally(motion)) {
         executeCharsOperator(op, count, isToRight(motion));
+    } else { // motion == web or WEB
+        int orig_cx = cx, orig_cy = cy;
+        for (int i = 0; i < count; ++i) {
+            moveByWord(motion);
+        }
+        multiplier = 0;
+        if (cy != orig_cy) { // move out of line
+            if (motion == 'b' or motion == 'B') {
+                cx = 0;
+                cy = orig_cy;
+                // if (motion == 'b') {
+                //     moveWordBackward();
+                // } else {
+                //     moveWORDBackward();
+                // }
+                buffer.deleteChars(cx, cy, orig_cx);
+            } else { // motion == we or WE
+                cx = orig_cx;
+                cy = orig_cy;
+                // switch (motion) {
+                // case 'w':
+                //     moveWordForward();
+                //     break;
+                // case 'W':
+                //     moveWORDForward();
+                //     break;
+                // case 'e':
+                //     moveWordEndForward();
+                //     break;
+                // case 'E':
+                //     moveWORDEndForward();
+                //     break;
+                // }
+                buffer.deleteChars(cx, cy, buffer.getLineLength(cy) - cx - 1);
+            }
+        } else { // still in current line
+            if (motion == 'b' or motion == 'B') {
+                buffer.deleteChars(cx, cy, orig_cx - cx);
+            } else {
+                buffer.deleteChars(orig_cx, cy, cx - orig_cx);
+                cx = orig_cx;
+            }
+        }
     }
 }
 
@@ -652,6 +668,29 @@ CharType Editor::getCharType(char c) const {
         return CharType::Word;
     } else {
         return CharType::Punctuation;
+    }
+}
+
+void Editor::moveByWord(int motion) {
+    switch (motion) {
+    case 'w':
+        moveWordForward();
+        break;
+    case 'W':
+        moveWORDForward();
+        break;
+    case 'e':
+        moveWordEndForward();
+        break;
+    case 'E':
+        moveWORDEndForward();
+        break;
+    case 'b':
+        moveWordBackward();
+        break;
+    case 'B':
+        moveWORDBackward();
+        break;
     }
 }
 
