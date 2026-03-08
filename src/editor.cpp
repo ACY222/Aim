@@ -500,8 +500,11 @@ void Editor::executeOperatorAction(char op, int motion, int count) {
         } else { // still in current line
             if (motion == 'b' or motion == 'B') {
                 buffer.deleteChars(cx, cy, orig_cx - cx);
-            } else {
+            } else if (motion == 'w' or motion == 'W') {
                 buffer.deleteChars(orig_cx, cy, cx - orig_cx);
+                cx = orig_cx;
+            } else { // motion == 'e' or 'E'
+                buffer.deleteChars(orig_cx, cy, cx - orig_cx + 1);
                 cx = orig_cx;
             }
         }
