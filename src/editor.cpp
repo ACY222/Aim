@@ -291,11 +291,13 @@ void Editor::handleInsert(int key) {
 
     case '\r': { // Enter
         std::string line = buffer.getLine(cy);
-        int leading_spaces_len = line.find_first_not_of(' ');
+        auto leading_spaces_len = line.find_first_not_of(' ');
         buffer.insertNewLine(cx, cy);
         ++cy;
-        buffer.appendString(cy, std::string(leading_spaces_len, ' '));
-        cx = leading_spaces_len;
+        if (leading_spaces_len != std::string::npos) {
+            buffer.appendString(cy, std::string(leading_spaces_len, ' '));
+            cx = leading_spaces_len;
+        }
         break;
     }
 
@@ -596,7 +598,7 @@ void Editor::pasteRegister(char op, int count) {
 void Editor::executeCommand() {
     if (command_buffer == "q") {
         should_quit = true;
-    } else if (command_buffer.starts_with('w')) {
+    } else if (command_buffer.starts_with('w') and command_buffer != "wq") {
         if (command_buffer.size() >= 3) {
             std::string new_filename = command_buffer.substr(2);
             if (!new_filename.empty()) {
